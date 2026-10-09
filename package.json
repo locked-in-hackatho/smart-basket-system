@@ -11,6 +11,7 @@
     "dev:frontend:https": "cross-env HTTPS=1 npm --prefix frontend run dev",
     "test": "node scripts/run-backend.mjs --pytest",
     "seed": "node scripts/run-backend.mjs --seed",
+    "reset-demo": "node scripts/run-backend.mjs --simulate",
     "install:all": "npm install && npm --prefix frontend install",
     "build": "npm --prefix frontend run build"
   },

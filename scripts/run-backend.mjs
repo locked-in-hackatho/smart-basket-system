@@ -24,7 +24,7 @@ if (!existsSync(venvPython)) {
 const tasks = {
   '--pytest': ['-m', 'pytest', '-q'],
   '--seed': ['-m', 'app.seed', '--reset'],
-  '--simulate': ['-m', 'app.seed', '--reset', '--simulate'],
+  '--simulate': ['-m', 'app.seed', '--reset', '--simulate', '500'],
 }
 const args = tasks[process.argv[2]] ?? ['-m', 'uvicorn', 'app.main:app', '--reload', '--port', '8000']
 

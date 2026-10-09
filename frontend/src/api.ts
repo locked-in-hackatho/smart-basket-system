@@ -7,17 +7,25 @@
  */
 
 import type {
+  AnalyticsSummary,
   BasketSummary,
+  CoPurchase,
   Cart,
   Health,
+  HourlyPoint,
+  Insight,
+  LiveBasket,
   PaymentMethod,
   Product,
   Receipt,
   RouteResponse,
   ScanMode,
+  SearchReport,
   SearchResponse,
   StoreMapData,
+  TopProduct,
   Zone,
+  ZoneStat,
 } from './types'
 
 export class ApiError extends Error {
@@ -101,4 +109,21 @@ export const api = {
     request<RouteResponse>(
       `/navigation/route?basket_id=${encodeURIComponent(basketId)}&product_id=${productId}`,
     ),
+
+  // --- Analytics ---
+  analytics: {
+    summary: () => request<AnalyticsSummary>('/analytics/summary'),
+    topProducts: () => request<TopProduct[]>('/analytics/top-products'),
+    zones: () => request<ZoneStat[]>('/analytics/zones'),
+    hourly: () => request<HourlyPoint[]>('/analytics/hourly'),
+    coPurchase: () => request<CoPurchase[]>('/analytics/co-purchase'),
+    searches: () => request<SearchReport>('/analytics/searches'),
+    live: () => request<{ baskets: LiveBasket[]; active: number }>('/analytics/live'),
+    insights: () => request<Insight[]>('/analytics/insights'),
+  },
+
+  // --- Demo helpers ---
+  simulate: (sessions = 500) =>
+    post<Record<string, unknown>>(`/dev/simulate?sessions=${sessions}`),
+  resetDemo: () => post<Record<string, unknown>>('/dev/reset'),
 }

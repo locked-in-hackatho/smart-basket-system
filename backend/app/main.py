@@ -6,7 +6,7 @@ from fastapi import FastAPI
 
 from app.config import settings
 from app.db import create_db_and_tables
-from app.routers import baskets, checkout, navigation, products
+from app.routers import analytics, baskets, checkout, dev, navigation, products
 from app.schemas import HealthOut
 
 
@@ -27,6 +27,8 @@ app.include_router(products.router)
 app.include_router(baskets.router)
 app.include_router(checkout.router)
 app.include_router(navigation.router)
+app.include_router(analytics.router)
+app.include_router(dev.router)
 
 
 @app.get("/api/health", response_model=HealthOut, tags=["system"])

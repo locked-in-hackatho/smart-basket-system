@@ -156,3 +156,83 @@ export interface RouteResponse {
   product: FoundProduct
   shelf: { id: number; label: string; level: string; x: number; y: number }
 }
+
+// --- Analytics ------------------------------------------------------------
+
+export interface AnalyticsSummary {
+  revenue_qepik: number
+  sessions: number
+  sessions_total: number
+  avg_basket_qepik: number
+  avg_items: number
+  avg_checkout_seconds: number
+  saved_seconds: number
+  saved_hours: number
+  abandoned_sessions: number
+}
+
+export interface TopProduct {
+  id: number
+  name: string
+  emoji: string
+  category: string
+  qty: number
+  revenue_qepik: number
+}
+
+export interface ZoneStat {
+  code: string
+  name: string
+  color: string
+  visits: number
+  sessions: number
+  avg_dwell_seconds: number
+  conversion: number
+  heat: number
+}
+
+export interface HourlyPoint {
+  hour: number
+  label: string
+  sessions: number
+  revenue_qepik: number
+}
+
+export interface CoPurchase {
+  a: string
+  a_emoji: string
+  b: string
+  b_emoji: string
+  count: number
+}
+
+export interface SearchReport {
+  top: { query: string; count: number }[]
+  not_found: { query: string; count: number }[]
+  most_routed: {
+    id: number
+    name: string
+    emoji: string
+    aisle: string
+    zone: string
+    count: number
+  }[]
+  total: number
+  not_found_total: number
+}
+
+export interface LiveBasket {
+  id: string
+  status: BasketStatus
+  x: number
+  y: number
+  zone_name: string | null
+  item_count: number
+  total_qepik: number
+}
+
+export interface Insight {
+  kind: 'zone' | 'layout' | 'demand' | 'findability' | 'win'
+  title: string
+  detail: string
+}
