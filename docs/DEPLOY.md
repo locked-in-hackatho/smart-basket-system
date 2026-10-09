@@ -97,6 +97,16 @@ HTTPS olduğu üçün sertifikat xəbərdarlığı olmayacaq.
 
 ---
 
+## Canlı ünvan
+
+**https://hackathon-smartbasket.vercel.app**
+
+Yenidən deploy etmək üçün (giriş bir dəfə edilib):
+
+```bash
+npx vercel --prod
+```
+
 ## Qeydlər
 
 - **`ADMIN_PIN` mütləq qoyun.** O olmasa `/api/dev/*` endpoint-ləri açıq qalır
@@ -107,3 +117,13 @@ HTTPS olduğu üçün sertifikat xəbərdarlığı olmayacaq.
   bilər; 300-lük iki çağırış daha etibarlıdır.
 - **Yerli iş dəyişmir.** `npm run dev` hələ də SQLite ilə işləyir; `.env`
   faylı deploy-a təsir etmir.
+- **Python asılılıqları iki yerdədir.** Vercel `api/pyproject.toml` və
+  `api/uv.lock` fayllarından quraşdırır, `requirements.txt`-dən yox. Yeni
+  paket əlavə edəndə hər ikisini yeniləyin:
+  ```bash
+  # api/pyproject.toml-a əlavə edin, sonra:
+  cd api && uv lock
+  ```
+  Əks halda build keçir, amma funksiya `ModuleNotFoundError` ilə çökür.
+- **Mühit dəyişəni yazarkən PowerShell pipe işlətməyin** — dəyər boş qalır.
+  Fayldan oxudun: `npx vercel env add DATABASE_URL production < value.txt`

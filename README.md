@@ -44,6 +44,11 @@ tamamlanır və səbət avtomatik sıfırlanır. **Faktiki ölçmə: ~8 saniyə.
 - **Analitika** (`/admin`) — KPI-lar, saatlıq trafik, istilik xəritəsi, canlı
   səbətlər, zona konversiyası, birlikdə alınanlar, üç axtarış hesabatı və
   tövsiyələr.
+- **Kataloq** (`/catalog`) — məhsul və barkodları əlavə edin, dəyişin, silin.
+  Barkod yazıldıqca yoxlanılır (EAN-13/EAN-8, yoxlama rəqəmi, təkrarlanma),
+  kamera ilə də oxuna bilər; rəf yeri avtomatik təyin olunur.
+- **Proqnoz və ML** (`/insights`) — satış proqnozu, davranış qrupları,
+  anomaliyalar, stok riski (sintetik data üzərində, səhifədə açıq yazılıb).
 - **Çap** (`/print`) — səbət QR kodları və məhsul barkodları (EAN-13).
 - **Demo** (`/demo`) — səbət və kassa bir ekranda, proyektor üçün.
 
@@ -228,6 +233,14 @@ işlədin. Barkod etibarlı EAN-13 olmalıdır (test bunu yoxlayır).
 
 Admin panelindəki **"Demo data"** və **"Sıfırla"** düymələri eyni işi
 brauzerdən görür.
+
+---
+
+## Canlı demo
+
+**https://hackathon-smartbasket.vercel.app**
+
+Telefon kamerası orada sertifikat xəbərdarlığı olmadan işləyir.
 
 ---
 
