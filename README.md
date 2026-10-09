@@ -134,6 +134,23 @@ Telefonda `https://192.168.x.x:5173` açın. Sertifikat öz-özünə imzalandı�
 brauzer xəbərdarlıq verəcək — **"Advanced" → "Proceed"** seçin. Bu, yalnız
 lokal şəbəkədə işləyən demo sertifikatıdır.
 
+### Telefonu barkod skaneri kimi işlətmək
+
+Fiziki səbət cihazı olmadığı üçün telefonun kamerası onun skanerini əvəz edir:
+
+1. Telefonda `/basket/BSK-001` açın.
+2. Aşağıda **"Demo: səbətin skaneri"** panelini açın.
+3. **"Kamera"** tabına keçin və brauzer soruşanda **"Allow"** seçin.
+4. Barkodu kameraya tutun — oxunan kimi səbətə düşür.
+
+**Vacib:** barkodu **kadrın təxminən yarısını dolduracaq qədər yaxın** tutun.
+Ölçdük: barkod kadrın 50–80%-ini tutanda yarım saniyədə oxunur; 30%-ə düşəndə
+(uzaqdan tutulanda) 640p kamerada ümumiyyətlə oxunmur, çünki barkodun hər
+zolağına 2 pikseldən az düşür. Tətbiq kameradan 720p istəyir, ona görə müasir
+telefonlarda nisbətən uzaqdan da oxuyur — amma yaxın tutmaq həmişə daha sürətlidir.
+
+Kassada (`/checkout`) eyni kamera səbətin **QR kodunu** oxuyur.
+
 > Kamera işləməsə, demo dayanmır: "Demo məhsullar" siyahısı, əl ilə barkod
 > girişi və USB skaner həmişə əlçatandır.
 

@@ -128,11 +128,46 @@ export default function BarcodeScanner({
           formatsToSupport: qrOnly
             ? [Formats.QR_CODE]
             : [Formats.EAN_13, Formats.EAN_8, Formats.CODE_128, Formats.QR_CODE],
+          // Use the browser's own decoder when it has one: much faster on a
+          // phone and noticeably better on 1D codes.
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
           verbose: false,
         })
         await scanner.start(
           { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 260, height: 180 } },
+          {
+            fps: 12,
+            // Ask for a sharp feed. An EAN-13 is 95 modules wide, so at 640p
+            // a barcode filling a third of the frame leaves ~2px per module
+            // and will not decode; 720p+ gives the decoder room to work.
+            // Note: these belong here, not in the first argument - putting
+            // them there stops the camera starting at all.
+            videoConstraints: {
+              facingMode: 'environment',
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+            // Anything outside this box is never examined, so its shape has
+            // to match the code. A QR is square; an EAN-13 is far wider than
+            // it is tall. One shape for both fails: a square box clips a
+            // barcode held close enough to read, and a wide, shallow box
+            // clips the top and bottom off a QR code.
+            qrbox: (viewWidth: number, viewHeight: number) =>
+              qrOnly
+                ? (() => {
+                    const side = Math.floor(Math.min(viewWidth, viewHeight) * 0.8)
+                    return { width: side, height: side }
+                  })()
+                : {
+                    width: Math.floor(viewWidth * 0.92),
+                    height: Math.floor(
+                      Math.min(viewHeight * 0.6, Math.max(viewHeight * 0.3, 160)),
+                    ),
+                  },
+            // Barcodes are often printed on curved or shiny packaging; let
+            // the decoder try the mirrored image too.
+            disableFlip: false,
+          },
           (text) => emit(text, 'camera'),
           () => {
             // Fired constantly for frames with no code in them; ignore.
@@ -236,7 +271,7 @@ export default function BarcodeScanner({
             )}
             {cameraState === 'on' && (
               <p className="pt-2 text-center text-sm text-slate-500">
-                Barkodu çərçivənin içinə tutun
+                Barkodu çərçivəyə tutun — kadrın təxminən yarısını doldursun
               </p>
             )}
           </div>
