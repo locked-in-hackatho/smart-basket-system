@@ -46,7 +46,7 @@ def _normalise(url: str) -> str:
     return url
 
 
-DATABASE_URL = _normalise(settings.database_url)
+DATABASE_URL = _normalise(settings.resolved_database_url)
 
 engine = create_engine(DATABASE_URL, echo=False, **_engine_kwargs(DATABASE_URL))
 
