@@ -1,21 +1,35 @@
 """Smart Basket API entrypoint."""
 
-import os
+from contextlib import asynccontextmanager
 
-from dotenv import load_dotenv
 from fastapi import FastAPI
 
-load_dotenv()
+from app.config import settings
+from app.db import create_db_and_tables
+from app.routers import baskets, products
+from app.schemas import HealthOut
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    create_db_and_tables()
+    yield
+
 
 app = FastAPI(
     title="Smart Basket API",
     description="Self-scanning shopping basket backend",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
+app.include_router(products.router)
+app.include_router(baskets.router)
 
-@app.get("/api/health")
-def health() -> dict:
+
+@app.get("/api/health", response_model=HealthOut, tags=["system"])
+def health() -> HealthOut:
     """Liveness probe. Also reports whether the AI assistant has a key."""
-    ai_mode = "ai" if os.getenv("ANTHROPIC_API_KEY") else "offline"
-    return {"status": "ok", "ai_mode": ai_mode}
+    return HealthOut(
+        status="ok", ai_mode=settings.ai_mode, store_name=settings.store_name
+    )
