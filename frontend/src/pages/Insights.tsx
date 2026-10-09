@@ -35,15 +35,7 @@ import { api, ApiError } from '../api'
 import { useToast } from '../components/Toast'
 import { Card, ErrorNote, Page, Spinner } from '../components/ui'
 import { formatAZN, formatCount } from '../utils/format'
-import type {
-  ForecastDay,
-  MlAnomaly,
-  MlInventoryRow,
-  MlRiskBasket,
-  MlRule,
-  MlSegment,
-  MlSummary,
-} from '../types'
+import type { MlDashboard, MlSummary } from '../types'
 
 /** Two series on one axis, both in manat. Validated for contrast and CVD. */
 const SERIES_FORECAST = '#2a78d6'
@@ -51,20 +43,7 @@ const SERIES_LAST_WEEK = '#eb6834'
 
 const WEEKDAYS = ['B.e', 'Ç.a', 'Çər', 'C.a', 'Cümə', 'Şən', 'Baz']
 
-interface Data {
-  summary: MlSummary
-  forecast: { days: ForecastDay[]; total_qepik: number; metrics: Record<string, number> }
-  segments: { segments: MlSegment[]; metrics: Record<string, number> }
-  anomalies: { anomalies: MlAnomaly[] }
-  rules: { rules: MlRule[] }
-  inventory: { products: MlInventoryRow[]; critical: number; warning: number; note: string }
-  risk: {
-    baskets: MlRiskBasket[]
-    threshold: number
-    drivers: { feature: string; importance: number }[]
-    metrics: Record<string, number>
-  }
-}
+type Data = MlDashboard
 
 export default function Insights() {
   const toast = useToast()
@@ -74,17 +53,7 @@ export default function Insights() {
 
   const load = useCallback(async () => {
     try {
-      const [summary, forecast, segments, anomalies, rules, inventory, risk] =
-        await Promise.all([
-          api.ml.summary(),
-          api.ml.forecast(),
-          api.ml.segments(),
-          api.ml.anomalies(),
-          api.ml.rules(),
-          api.ml.inventory(),
-          api.ml.risk(),
-        ])
-      setData({ summary, forecast, segments, anomalies, rules, inventory, risk })
+      setData(await api.ml.dashboard())
       setError(null)
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'Modellər yüklənmədi')

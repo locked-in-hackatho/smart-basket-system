@@ -17,6 +17,7 @@ import type {
   Insight,
   LiveBasket,
   MlAnomaly,
+  MlDashboard,
   MlInventoryRow,
   MlRiskBasket,
   MlRule,
@@ -172,6 +173,9 @@ export const api = {
 
   // --- Predictive analytics ---
   ml: {
+    /** One request for the whole page: on serverless, each call to a cold
+     *  instance refits the models, so seven calls meant seven trainings. */
+    dashboard: () => request<MlDashboard>('/ml/dashboard'),
     summary: () => request<MlSummary>('/ml/summary'),
     retrain: () => post<MlSummary>('/ml/train'),
     forecast: () =>

@@ -331,3 +331,24 @@ export interface ProductDraft {
   keywords?: string
   level?: string | null
 }
+
+/** The whole insights page in one payload. */
+export interface MlDashboard {
+  summary: MlSummary
+  forecast: { days: ForecastDay[]; total_qepik: number; metrics: Record<string, number> }
+  segments: { segments: MlSegment[]; metrics: Record<string, number> }
+  anomalies: { anomalies: MlAnomaly[] }
+  rules: { rules: MlRule[] }
+  inventory: {
+    products: MlInventoryRow[]
+    critical: number
+    warning: number
+    note: string
+  }
+  risk: {
+    baskets: MlRiskBasket[]
+    threshold: number
+    drivers: { feature: string; importance: number }[]
+    metrics: Record<string, number>
+  }
+}

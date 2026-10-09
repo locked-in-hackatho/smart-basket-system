@@ -17,6 +17,27 @@ from app.services import ml
 router = APIRouter(prefix="/api/ml", tags=["ml"])
 
 
+@router.get("/dashboard")
+def get_dashboard(session: Session = Depends(get_session)) -> dict:
+    """Everything the insights page needs, in one request.
+
+    The models are fitted per process, and on serverless each cold instance
+    fits its own. Seven parallel calls meant up to seven trainings, so the
+    page waited on the slowest of them; one call means one.
+    """
+    models = ml.get_models()
+    assert models is not None
+    return {
+        "summary": ml.summary(models),
+        "forecast": get_forecast(),
+        "segments": get_segments(),
+        "anomalies": get_anomalies(),
+        "rules": get_rules(),
+        "inventory": get_inventory(session),
+        "risk": get_risk(session),
+    }
+
+
 @router.get("/summary")
 def get_summary() -> dict:
     """What the pipeline is, what it was trained on, and how well it scores."""
