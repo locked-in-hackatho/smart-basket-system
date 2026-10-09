@@ -9,10 +9,12 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Camera,
   CameraOff,
+  Flashlight,
   Grid3x3,
   Keyboard,
   Loader2,
   Search,
+  ZoomIn,
 } from 'lucide-react'
 // Loaded on demand: html5-qrcode is ~400 kB and only the camera tab needs it.
 import type { Html5Qrcode } from 'html5-qrcode'
@@ -83,6 +85,7 @@ export default function BarcodeScanner({
   disabledRef.current = disabled
 
   const lastScanRef = useRef<{ code: string; at: number }>({ code: '', at: 0 })
+  const trackRef = useRef<MediaStreamTrack | null>(null)
   /** Frames seen with no code since the last accepted camera decode. */
   const clearFramesRef = useRef(0)
 
@@ -93,6 +96,18 @@ export default function BarcodeScanner({
    */
   const [searchingFor, setSearchingFor] = useState(0)
   const lastDecodeRef = useRef(0)
+
+  /** What the camera actually gave us, and what it can do. */
+  const [cameraInfo, setCameraInfo] = useState<{
+    label: string
+    width: number
+    height: number
+    zoom: { min: number; max: number; step: number } | null
+    torch: boolean
+  } | null>(null)
+  const [zoom, setZoom] = useState(1)
+  const [torchOn, setTorchOn] = useState(false)
+  const [frameCheck, setFrameCheck] = useState<string | null>(null)
 
   /**
    * `source` matters: only the camera repeats a code by itself, so only the
@@ -214,6 +229,34 @@ export default function BarcodeScanner({
         )
         if (stopped) return
         setCameraState('on')
+
+        // Report what we got. A fixed-focus laptop webcam cannot focus on a
+        // barcode held close enough to fill the frame, and saying so beats
+        // leaving someone waving a bottle at a blurry picture.
+        const video = document.querySelector<HTMLVideoElement>(
+          `#${CAMERA_ELEMENT_ID} video`,
+        )
+        const track = (video?.srcObject as MediaStream | null)?.getVideoTracks()[0]
+        if (track) {
+          trackRef.current = track
+          const settings = track.getSettings()
+          const caps = track.getCapabilities?.() as
+            | (MediaTrackCapabilities & {
+                zoom?: { min: number; max: number; step: number }
+                torch?: boolean
+              })
+            | undefined
+          setCameraInfo({
+            label: track.label || 'Kamera',
+            width: settings.width ?? 0,
+            height: settings.height ?? 0,
+            zoom: caps?.zoom
+              ? { min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 }
+              : null,
+            torch: Boolean(caps?.torch),
+          })
+          setZoom(Number(settings.zoom ?? caps?.zoom?.min ?? 1))
+        }
       } catch (cause) {
         if (stopped) return
         setCameraState('error')
@@ -228,6 +271,10 @@ export default function BarcodeScanner({
     void start()
     return () => {
       stopped = true
+      trackRef.current = null
+      setCameraInfo(null)
+      setFrameCheck(null)
+      setTorchOn(false)
       if (scanner) {
         scanner
           .stop()
@@ -254,6 +301,75 @@ export default function BarcodeScanner({
     }, 1000)
     return () => window.clearInterval(timer)
   }, [tab, cameraState])
+
+  async function applyZoom(value: number) {
+    setZoom(value)
+    try {
+      await trackRef.current?.applyConstraints({
+        advanced: [{ zoom: value }],
+      } as unknown as MediaTrackConstraints)
+    } catch {
+      // Some devices advertise zoom but refuse it; the slider just no-ops.
+    }
+  }
+
+  async function toggleTorch() {
+    const next = !torchOn
+    setTorchOn(next)
+    try {
+      await trackRef.current?.applyConstraints({
+        advanced: [{ torch: next }],
+      } as unknown as MediaTrackConstraints)
+    } catch {
+      setTorchOn(false)
+    }
+  }
+
+  /**
+   * Grab one frame and try to decode it on its own. The live scanner gives
+   * no clue why it is failing; this says whether the picture is readable at
+   * all, which separates "hold it closer" from "this camera cannot focus".
+   */
+  async function checkFrame() {
+    const video = document.querySelector<HTMLVideoElement>(
+      `#${CAMERA_ELEMENT_ID} video`,
+    )
+    if (!video || !video.videoWidth) {
+      setFrameCheck('Kamera görüntüsü yoxdur')
+      return
+    }
+    setFrameCheck('Yoxlanılır…')
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      canvas.getContext('2d')?.drawImage(video, 0, 0)
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/png'),
+      )
+      if (!blob) throw new Error('kadr alınmadı')
+
+      const { Html5Qrcode } = await import('html5-qrcode')
+      let host = document.getElementById('frame-check-host')
+      if (!host) {
+        host = document.createElement('div')
+        host.id = 'frame-check-host'
+        host.style.cssText = 'position:fixed;left:-9999px'
+        document.body.appendChild(host)
+      }
+      const reader = new Html5Qrcode('frame-check-host', { verbose: false })
+      const result = await reader.scanFileV2(
+        new File([blob], 'frame.png', { type: 'image/png' }),
+        false,
+      )
+      setFrameCheck(`Bu kadrda oxundu: ${result.decodedText}`)
+      emit(result.decodedText, 'input')
+    } catch {
+      setFrameCheck(
+        'Bu kadrda barkod tapılmadı — görüntü bulanıqdırsa, kamera bu qədər yaxına fokuslana bilmir',
+      )
+    }
+  }
 
   // --- 3. Demo product grid ----------------------------------------------
   useEffect(() => {
@@ -358,9 +474,67 @@ export default function BarcodeScanner({
               </div>
             )}
             {cameraState === 'on' && (
-              <p className="pt-2 text-center text-sm text-slate-500">
-                Barkodu çərçivəyə tutun — kadrın təxminən yarısını doldursun
-              </p>
+              <>
+                <p className="pt-2 text-center text-sm text-slate-500">
+                  Barkodu çərçivəyə tutun — kadrın təxminən yarısını doldursun
+                </p>
+
+                {cameraInfo?.zoom && (
+                  <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                    <ZoomIn className="size-4 shrink-0" aria-hidden />
+                    <span className="shrink-0">Yaxınlaşdır</span>
+                    <input
+                      type="range"
+                      min={cameraInfo.zoom.min}
+                      max={cameraInfo.zoom.max}
+                      step={cameraInfo.zoom.step}
+                      value={zoom}
+                      onChange={(event) => void applyZoom(Number(event.target.value))}
+                      className="w-full accent-brand-600"
+                    />
+                    <span className="w-10 shrink-0 text-right tabular-nums">
+                      {zoom.toFixed(1)}×
+                    </span>
+                  </label>
+                )}
+
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void checkFrame()}
+                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Kadrı yoxla
+                  </button>
+                  {cameraInfo?.torch && (
+                    <button
+                      type="button"
+                      onClick={() => void toggleTorch()}
+                      aria-pressed={torchOn}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                        torchOn
+                          ? 'border-amber-300 bg-amber-50 text-amber-800'
+                          : 'border-slate-300 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Flashlight className="size-3.5" aria-hidden />
+                      İşıq
+                    </button>
+                  )}
+                  {cameraInfo && (
+                    <span className="ml-auto text-xs text-slate-400">
+                      {cameraInfo.width}×{cameraInfo.height}
+                      {!cameraInfo.zoom && ' · zoom yoxdur'}
+                    </span>
+                  )}
+                </div>
+
+                {frameCheck && (
+                  <p className="mt-2 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700">
+                    {frameCheck}
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}

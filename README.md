@@ -163,6 +163,40 @@ telefonlarda nisbətən uzaqdan da oxuyur — amma yaxın tutmaq həmişə daha 
 
 Kassada (`/checkout`) eyni kamera səbətin **QR kodunu** oxuyur.
 
+### Kamera oxumursa
+
+Əvvəlcə **bazanın deyil, kameranın** problem olduğunu təsdiqləyin: skaner
+panelində **"Əl ilə"** tabına keçib barkodu yazın. Məhsul əlavə olunursa,
+kataloq qaydasındadır.
+
+Sonra kamera panelindəki **"Kadrı yoxla"** düyməsinə basın — o, hazırkı kadrı
+tutub ayrıca dekodlamağa çalışır və nəticəni yazır:
+
+| Nəticə | Mənası |
+|---|---|
+| `Bu kadrda oxundu: …` | Görüntü yaxşıdır; barkodu daha sabit tutun |
+| `Bu kadrda barkod tapılmadı` | Görüntü dekoder üçün kifayət etmir — aşağıya baxın |
+
+**Ən çox rast gəlinən səbəb: noutbuk kamerası.** Noutbuk veb-kameraları adətən
+**sabit fokusludur** (~40–60 sm, üz məsafəsi) və maksimum 720p verir. EAN-13
+cəmi ~3 sm enindədir; onu kadrı dolduracaq qədər böyütmək üçün ~10 sm-ə
+gətirmək lazımdır — bu, fokus sahəsinin içindədir, görüntü bulanıq olur.
+Panelin altındakı `1280×720 · zoom yoxdur` yazısı kameranızın nə verdiyini
+göstərir.
+
+Üç həll yolu:
+
+1. **Telefon (ən yaxşısı).** Avtofokus və 1080p+ kamera. `npm run dev:https`
+   ilə başladın, telefonda `https://<IP>:5173` açın. Telefonda zoom və işıq
+   (torch) düymələri də görünür.
+2. **Böyük barkod.** `/print` → **"Böyük barkod (ekrandan skan)"** → məhsulu
+   seçin. Barkod ekranda ~700 piksel enində çıxır; ekranı kameraya **30–40 sm**
+   məsafədən tutun — bu, sabit fokusun içinə düşür.
+3. **"Əl ilə" və ya "Demo məhsullar".** Həmişə işləyir, demo heç vaxt dayanmır.
+
+Digər səbəblər: zəif işıq, ekrandan skan edəndə parıltı (ekran parlaqlığını
+azaldın), barkodun əyri səthdə olması.
+
 ### Real məhsulla yoxlama
 
 Kataloqda real barkodlu bir məhsul var ki, mağazadan alınmış şüşəni birbaşa

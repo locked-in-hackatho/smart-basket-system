@@ -14,7 +14,7 @@ import { Card, ErrorNote, Page, Spinner } from '../components/ui'
 import { formatAZN } from '../utils/format'
 import type { BasketSummary, Product } from '../types'
 
-type Sheet = 'baskets' | 'products'
+type Sheet = 'baskets' | 'products' | 'big'
 
 export default function PrintCodes() {
   const [sheet, setSheet] = useState<Sheet>('baskets')
@@ -58,6 +58,7 @@ export default function PrintCodes() {
             [
               ['baskets', `Səbət QR kodları (${baskets?.length ?? 0})`],
               ['products', `Məhsul barkodları (${products?.length ?? 0})`],
+              ['big', 'Böyük barkod (ekrandan skan)'],
             ] as [Sheet, string][]
           ).map(([id, label]) => (
             <button
@@ -88,6 +89,11 @@ export default function PrintCodes() {
               və ya birbaşa ekrandan skan edin.
             </li>
             <li>Çap etməsəniz də olar — kamera ekrandakı kodu oxuya bilir.</li>
+            <li>
+              <strong>Böyük barkod:</strong> noutbuk kamerası sabit fokusludur və
+              kiçik barkoda yaxınlaşa bilmir. Bu rejimdə barkod ekranda böyük
+              göstərilir — ekranı kameraya 30–40 sm məsafədən tutun.
+            </li>
           </ul>
         </Card>
       </div>
@@ -113,6 +119,8 @@ export default function PrintCodes() {
                 </article>
               ))}
             </div>
+          ) : sheet === 'big' ? (
+            <BigBarcode products={products ?? []} />
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {products?.map((product) => (
@@ -135,5 +143,58 @@ export default function PrintCodes() {
         </div>
       )}
     </Page>
+  )
+}
+
+
+/**
+ * One barcode, as large as the screen allows.
+ *
+ * A fixed-focus laptop webcam cannot focus on a product label held close
+ * enough to fill the frame. Showing the code big on a second screen (or this
+ * one, to a phone) gets the same pixels-per-bar at a sane focus distance.
+ */
+function BigBarcode({ products }: { products: Product[] }) {
+  const [index, setIndex] = useState(0)
+  const product = products[index]
+  if (!product) return null
+
+  return (
+    <div className="print-card mx-auto max-w-3xl text-center">
+      <div className="no-print mb-3 flex flex-wrap items-center justify-center gap-2">
+        <label className="text-sm font-semibold text-slate-700" htmlFor="big-product">
+          Məhsul:
+        </label>
+        <select
+          id="big-product"
+          value={index}
+          onChange={(event) => setIndex(Number(event.target.value))}
+          className="min-h-11 rounded-xl border border-slate-300 px-3"
+        >
+          {products.map((item, position) => (
+            <option key={item.id} value={position}>
+              {item.emoji} {item.name} — {formatAZN(item.price_qepik)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <article className="rounded-2xl border border-slate-300 bg-white p-6">
+        <p className="text-2xl font-bold">
+          {product.emoji} {product.name}
+        </p>
+        <div className="my-4 flex justify-center [&_svg]:h-auto [&_svg]:w-full">
+          <Barcode value={product.barcode} width={4} height={190} />
+        </div>
+        <p className="text-xl font-bold text-brand-700">
+          {formatAZN(product.price_qepik)}
+        </p>
+      </article>
+
+      <p className="no-print mt-3 text-sm text-slate-500">
+        Ekranı kameraya 30–40 sm məsafədən tutun. Parıltı olmaması üçün ekran
+        parlaqlığını bir az azaldın.
+      </p>
+    </div>
   )
 }
