@@ -1,5 +1,20 @@
+# Vercel's Python builder installs from this file (and the lock beside it),
+# not from requirements.txt — keep the two in step when adding a dependency.
 [project]
 name = "app"
 version = "0.1.0"
-dependencies = [ "fastapi", "uvicorn[standard]", "sqlmodel", "pydantic-settings", "python-dotenv", "rapidfuzz", "httpx", "psycopg[binary]" ]
 requires-python = "~=3.12.0"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlmodel",
+    "pydantic-settings",
+    "python-dotenv",
+    "rapidfuzz",
+    "httpx",
+    # Postgres driver, used when DATABASE_URL points at a hosted database.
+    "psycopg[binary]",
+    # Predictive analytics (see backend/app/services/ml.py).
+    "scikit-learn",
+    "numpy",
+]
