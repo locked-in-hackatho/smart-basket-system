@@ -1,11 +1,27 @@
-/**
- * Placeholder shell. Real routing and pages arrive in phase 3.
- */
+import { Navigate, Route, Routes } from 'react-router-dom'
+
+import { ToastProvider } from './components/Toast'
+import Admin from './pages/Admin'
+import BasketDevice from './pages/BasketDevice'
+import Checkout from './pages/Checkout'
+import Demo from './pages/Demo'
+import Home from './pages/Home'
+import PrintCodes from './pages/PrintCodes'
+
 export default function App() {
   return (
-    <div className="flex min-h-full flex-col items-center justify-center gap-3 p-8 text-center">
-      <h1 className="text-3xl font-bold text-brand-600">Smart Basket</h1>
-      <p className="text-slate-600">Mühit hazırdır. Ekranlar növbəti fazalarda əlavə olunacaq.</p>
-    </div>
+    <ToastProvider>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/basket/:basketId" element={<BasketDevice />} />
+        {/* A bare /basket is a common mistake on the demo laptop. */}
+        <Route path="/basket" element={<Navigate to="/basket/BSK-001" replace />} />
+        <Route path="/checkout" element={<Checkout />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/print" element={<PrintCodes />} />
+        <Route path="/demo" element={<Demo />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </ToastProvider>
   )
 }

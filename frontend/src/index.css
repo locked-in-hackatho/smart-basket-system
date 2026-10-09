@@ -26,3 +26,27 @@ body {
   @apply bg-slate-50 text-slate-900 antialiased;
   font-family: var(--font-sans);
 }
+
+/* Toast entrance. Kept in CSS so every toast animates without JS. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 180ms ease-out;
+}
+
+/* Touch targets on the basket screen must stay finger-sized. */
+@media (pointer: coarse) {
+  button,
+  a[role='button'] {
+    min-height: 48px;
+  }
+}
