@@ -52,3 +52,30 @@ class HealthOut(BaseModel):
     status: str
     ai_mode: str
     store_name: str
+
+
+# --- Cart -----------------------------------------------------------------
+
+
+class ScanIn(BaseModel):
+    barcode: str
+    mode: str = "add"  # "add" | "remove"
+
+
+class QtyIn(BaseModel):
+    qty: int
+
+
+class ZoneIn(BaseModel):
+    zone_code: str
+
+
+# --- Checkout -------------------------------------------------------------
+
+
+class LookupIn(BaseModel):
+    qr_payload: str
+
+
+class PayIn(BaseModel):
+    method: str  # "cash" | "card"

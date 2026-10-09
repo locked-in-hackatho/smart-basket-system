@@ -1,11 +1,12 @@
-"""Basket listing. Scanning and cart endpoints arrive in phase 2."""
+"""Basket endpoints: listing, cart contents, scanning and zone changes."""
 
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import BasketItem, Basket, Product, Zone
-from app.schemas import BasketOut
+from app.schemas import BasketOut, QtyIn, ScanIn, ZoneIn
+from app.services import cart
 
 router = APIRouter(tags=["baskets"])
 
@@ -48,3 +49,42 @@ def list_baskets(session: Session = Depends(get_session)) -> list[BasketOut]:
             )
         )
     return result
+
+
+@router.get("/api/baskets/{basket_id}/cart")
+def get_cart(basket_id: str, session: Session = Depends(get_session)) -> dict:
+    """The basket's current contents and total -- the frontend's only truth."""
+    return cart.get_cart(session, basket_id)
+
+
+@router.post("/api/baskets/{basket_id}/scan")
+def scan(
+    basket_id: str, body: ScanIn, session: Session = Depends(get_session)
+) -> dict:
+    """Add or remove one unit of a scanned barcode."""
+    return cart.scan(session, basket_id, body.barcode, body.mode)
+
+
+@router.patch("/api/baskets/{basket_id}/items/{item_id}")
+def update_item(
+    basket_id: str,
+    item_id: int,
+    body: QtyIn,
+    session: Session = Depends(get_session),
+) -> dict:
+    return cart.set_item_qty(session, basket_id, item_id, body.qty)
+
+
+@router.delete("/api/baskets/{basket_id}/items/{item_id}")
+def remove_item(
+    basket_id: str, item_id: int, session: Session = Depends(get_session)
+) -> dict:
+    return cart.delete_item(session, basket_id, item_id)
+
+
+@router.post("/api/baskets/{basket_id}/zone")
+def set_zone(
+    basket_id: str, body: ZoneIn, session: Session = Depends(get_session)
+) -> dict:
+    """Simulated positioning: in production this comes from BLE beacons."""
+    return cart.set_zone(session, basket_id, body.zone_code)
