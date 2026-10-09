@@ -30,7 +30,7 @@ import {
   Wallet,
 } from 'lucide-react'
 
-import { api, ApiError } from '../api'
+import { api, ApiError, getAdminPin, setAdminPin } from '../api'
 import KpiCard from '../components/KpiCard'
 import StoreMap from '../components/StoreMap'
 import { useToast } from '../components/Toast'
@@ -125,7 +125,17 @@ export default function Admin() {
   async function runDemoAction(action: () => Promise<unknown>, message: string) {
     setBusy(true)
     try {
-      await action()
+      try {
+        await action()
+      } catch (cause) {
+        // The deployed app asks for a PIN before letting anyone wipe the
+        // demo. Ask once, remember it for the visit, and try again.
+        if (!(cause instanceof ApiError) || cause.status !== 401) throw cause
+        const pin = window.prompt('Admin PIN:', getAdminPin())
+        if (!pin) return
+        setAdminPin(pin.trim())
+        await action()
+      }
       await load()
       toast.success(message)
     } catch (cause) {

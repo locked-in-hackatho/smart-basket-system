@@ -12,7 +12,13 @@ from app.schemas import HealthOut
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    create_db_and_tables()
+    # On serverless this runs on every cold start. `create_all` is idempotent,
+    # but a brief database hiccup must not take the whole function down — the
+    # tables are created once and every later call is a no-op anyway.
+    try:
+        create_db_and_tables()
+    except Exception as error:  # noqa: BLE001
+        print(f"[startup] could not prepare the database: {error}")
     yield
 
 

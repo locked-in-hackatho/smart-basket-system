@@ -231,12 +231,28 @@ brauzerdən görür.
 
 ---
 
+## Deploy (Vercel)
+
+Daimi HTTPS linki — telefon kamerası sertifikat xəbərdarlığı olmadan işləyir
+və kassa ekranı ilə eyni sistemə qoşulur.
+
+Addım-addım təlimat: **[docs/DEPLOY.md](docs/DEPLOY.md)**
+
+Qısaca: pulsuz Neon Postgres yaradın, `DATABASE_URL`, `STORE_NAME` və
+`ADMIN_PIN` mühit dəyişənlərini Vercel-ə əlavə edin, `npx vercel --prod`
+işlədin, sonra bir dəfə `/api/dev/reset` çağırıb kataloqu yükləyin.
+
+Baza seçimi avtomatikdir: `DATABASE_URL` `sqlite:` ilə başlayırsa SQLite,
+`postgres…` ilə başlayırsa Postgres işlədilir. Yerli iş dəyişmir.
+
+---
+
 ## Texnologiyalar
 
 | Qat | Seçim |
 |---|---|
 | Backend | Python 3.12 · FastAPI · SQLModel · Uvicorn |
-| Baza | SQLite (`backend/smartbasket.db`) |
+| Baza | SQLite (yerli) · Postgres (deploy) — eyni kod |
 | Frontend | React 19 · Vite · TypeScript · Tailwind CSS 4 |
 | Qrafiklər | Recharts |
 | Barkod/QR | `html5-qrcode` (oxuma) · `qrcode.react`, `jsbarcode` (yaratma) |
@@ -335,5 +351,6 @@ tapması (BFS ilə müqayisə), axtarış, analitika və simulyator.
 
 ## Lisenziya və status
 
-Hackathon prototipi. Autentifikasiya yoxdur, `/api/dev/*` endpoint-ləri açıqdır —
-real istifadə üçün bunlar bağlanmalıdır.
+Hackathon prototipi. İstifadəçi autentifikasiyası yoxdur. `/api/dev/*`
+endpoint-ləri `ADMIN_PIN` qoyulduqda qorunur (deploy üçün mütləqdir), PIN
+qoyulmayanda isə yerli iş üçün açıq qalır.

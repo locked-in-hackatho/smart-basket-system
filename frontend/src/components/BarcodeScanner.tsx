@@ -196,9 +196,18 @@ export default function BarcodeScanner({
             // them there stops the camera starting at all.
             videoConstraints: {
               facingMode: 'environment',
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-            },
+              // A printed EAN-13 on a bottle is ~3cm wide. At 1080p a phone
+              // can read it from a comfortable 15-20cm; at 720p it has to be
+              // uncomfortably close. Ask for as much as the device will give.
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+              // Keep refocusing: a shopper moves the item towards the lens,
+              // and a single autofocus lock at start leaves it blurred.
+              advanced: [
+                { focusMode: 'continuous' },
+                { focusDistance: { ideal: 0.1 } },
+              ],
+            } as unknown as MediaTrackConstraints,
             // Anything outside this box is never examined, so its shape has
             // to match the code. A QR is square; an EAN-13 is far wider than
             // it is tall. One shape for both fails: a square box clips a
@@ -256,6 +265,18 @@ export default function BarcodeScanner({
             torch: Boolean(caps?.torch),
           })
           setZoom(Number(settings.zoom ?? caps?.zoom?.min ?? 1))
+
+          // Some phones only honour focus settings once the track is live.
+          const focusModes = (caps as { focusMode?: string[] } | undefined)?.focusMode
+          if (focusModes?.includes('continuous')) {
+            void track
+              .applyConstraints({
+                advanced: [{ focusMode: 'continuous' }],
+              } as unknown as MediaTrackConstraints)
+              .catch(() => {
+                // Advisory only.
+              })
+          }
         }
       } catch (cause) {
         if (stopped) return

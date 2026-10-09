@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+pydantic-settings
+python-dotenv
+rapidfuzz
+httpx
+# Postgres driver for the deployed database.
+psycopg[binary]

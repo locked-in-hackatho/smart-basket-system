@@ -38,12 +38,40 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The deployed app gates its destructive endpoints behind an admin PIN.
+ * It is kept in sessionStorage so the dashboard asks once per visit, never
+ * in the code, and never for a local run (where no PIN is configured).
+ */
+const PIN_KEY = 'smartbasket.adminPin'
+
+export function getAdminPin(): string {
+  try {
+    return sessionStorage.getItem(PIN_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+export function setAdminPin(pin: string): void {
+  try {
+    sessionStorage.setItem(PIN_KEY, pin)
+  } catch {
+    // Private browsing: the PIN simply will not be remembered.
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response
   try {
+    const pin = getAdminPin()
     response = await fetch(`/api${path}`, {
-      headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
       ...init,
+      headers: {
+        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(pin ? { 'X-Admin-Pin': pin } : {}),
+        ...(init?.headers as Record<string, string> | undefined),
+      },
     })
   } catch {
     throw new ApiError('Serverə qoşulmaq mümkün olmadı', 0)

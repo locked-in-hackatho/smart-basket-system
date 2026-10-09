@@ -234,3 +234,23 @@ def test_dev_reset_can_seed_history_in_one_go(client: TestClient) -> None:
     body = client.post("/api/dev/reset", params={"simulate_sessions": 25}).json()
     assert body["simulated"]["sessions"] > 0
     assert client.get("/api/analytics/summary").json()["sessions_total"] > 0
+
+
+def test_dev_endpoints_are_gated_when_a_pin_is_set(client: TestClient) -> None:
+    """Deployed publicly, these wipe the demo — they must not stay open."""
+    from app.config import settings
+
+    original = settings.admin_pin
+    settings.admin_pin = "4321"
+    try:
+        assert client.post("/api/dev/reset").status_code == 401
+        assert client.post("/api/dev/simulate", params={"sessions": 1}).status_code == 401
+
+        ok = client.post("/api/dev/reset", headers={"X-Admin-Pin": "4321"})
+        assert ok.status_code == 200
+        assert ok.json()["products"] > 0
+    finally:
+        settings.admin_pin = original
+
+    # With no PIN configured (local development) they stay open.
+    assert client.post("/api/dev/reset").status_code == 200
