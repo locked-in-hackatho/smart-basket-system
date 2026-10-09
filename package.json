@@ -1,0 +1,21 @@
+{
+  "name": "smart-basket",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Smart Basket - self-scanning shopping basket with instant checkout",
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c green,cyan \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:https": "concurrently -n backend,frontend -c green,cyan \"npm:dev:backend\" \"npm:dev:frontend:https\"",
+    "dev:backend": "node scripts/run-backend.mjs",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:frontend:https": "cross-env HTTPS=1 npm --prefix frontend run dev",
+    "test": "node scripts/run-backend.mjs --pytest",
+    "seed": "node scripts/run-backend.mjs --seed",
+    "install:all": "npm install && npm --prefix frontend install",
+    "build": "npm --prefix frontend run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0"
+  }
+}
