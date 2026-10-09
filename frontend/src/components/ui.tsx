@@ -47,7 +47,7 @@ export function Page({
             <Link
               to="/"
               aria-label="Ana səhifə"
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              className="no-print flex size-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
             >
               <ArrowLeft className="size-5" aria-hidden />
             </Link>

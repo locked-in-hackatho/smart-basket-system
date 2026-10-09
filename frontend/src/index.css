@@ -51,25 +51,28 @@ body {
   }
 }
 
-/* Printing: only the receipt goes on paper.
-   Hiding ancestors is not an option (the receipt lives inside the page), so
-   everything is made invisible and just the receipt is painted back in. */
+/* --- Printing ------------------------------------------------------------
+   Two different print jobs share one stylesheet: the till prints a single
+   receipt, and /print produces sheets of cards. `:has()` picks which. */
 @media print {
   body {
     background: #fff;
   }
 
-  body * {
+  .no-print {
+    display: none !important;
+  }
+
+  /* Till: only the receipt goes on paper. Its ancestors cannot be hidden
+     (the receipt lives inside the page), so everything is made invisible
+     and just the receipt is painted back in. */
+  body:has(.receipt) * {
     visibility: hidden;
   }
 
-  .receipt,
-  .receipt * {
+  body:has(.receipt) .receipt,
+  body:has(.receipt) .receipt * {
     visibility: visible;
-  }
-
-  .no-print {
-    display: none !important;
   }
 
   .print-overlay {
@@ -92,5 +95,15 @@ body {
     box-shadow: none !important;
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  /* /print: never split a code card across two pages. */
+  .print-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  @page {
+    margin: 10mm;
   }
 }
