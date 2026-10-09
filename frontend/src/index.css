@@ -50,3 +50,47 @@ body {
     min-height: 48px;
   }
 }
+
+/* Printing: only the receipt goes on paper.
+   Hiding ancestors is not an option (the receipt lives inside the page), so
+   everything is made invisible and just the receipt is painted back in. */
+@media print {
+  body {
+    background: #fff;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .receipt,
+  .receipt * {
+    visibility: visible;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-overlay {
+    position: static !important;
+    overflow: visible !important;
+    background: none !important;
+    padding: 0 !important;
+  }
+
+  /* Keep a receipt-like column rather than stretching across the sheet. */
+  .receipt {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 92mm !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
