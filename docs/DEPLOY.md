@@ -50,7 +50,7 @@ Mühit dəyişənlərini əlavə edin (hər biri soruşanda dəyəri yapışdır
 ```bash
 npx vercel env add DATABASE_URL production
 npx vercel env add STORE_NAME production      # məsələn: Smart Market
-npx vercel env add ADMIN_PIN production       # özünüz seçin, məs. 4821
+npx vercel env add ADMIN_PIN production       # özünüz seçin, 4 rəqəm
 ```
 
 Sonra deploy:
@@ -65,17 +65,17 @@ Vercel sizə belə bir link verəcək: `https://smart-basket-xxxx.vercel.app`
 
 ## 3. Bazanı doldurmaq — bir dəfəlik
 
-Yeni baza boşdur. Kataloqu və demo datasını yükləyin (PIN-i öz seçdiyinizlə
-əvəz edin):
+Yeni baza boşdur. Kataloqu və demo datasını yükləyin (`SİZİN-PİN` yerinə `ADMIN_PIN`-i
+yazın — həqiqi PIN-i heç vaxt repoya yazmayın):
 
 ```bash
 # Kataloq: 12 zona, 55 məhsul, 10 səbət
 curl -X POST "https://SİZİN-LİNK.vercel.app/api/dev/reset" \
-     -H "X-Admin-Pin: 4821"
+     -H "X-Admin-Pin: SİZİN-PİN"
 
 # Analitika üçün keçmiş data (bir neçə dəfə kiçik hissələrlə də olar)
 curl -X POST "https://SİZİN-LİNK.vercel.app/api/dev/simulate?sessions=300" \
-     -H "X-Admin-Pin: 4821"
+     -H "X-Admin-Pin: SİZİN-PİN"
 ```
 
 Admin panelindəki **"Demo data"** və **"Sıfırla"** düymələri də işləyir —
