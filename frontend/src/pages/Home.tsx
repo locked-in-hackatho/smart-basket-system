@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   BarChart3,
+  Brain,
   ChevronRight,
   MonitorPlay,
   Printer,
@@ -38,6 +39,13 @@ const CARDS = [
     title: 'Analitika paneli',
     text: 'Dövriyyə, istilik xəritəsi, birlikdə alınan məhsullar və qənaət edilən vaxt.',
     tone: 'bg-violet-600',
+  },
+  {
+    to: '/insights',
+    icon: Brain,
+    title: 'Proqnoz və ML',
+    text: 'Satış proqnozu, davranış qrupları, anomaliyalar və stok riski — sintetik data üzərində.',
+    tone: 'bg-fuchsia-600',
   },
   {
     to: '/print',

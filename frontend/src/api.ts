@@ -11,10 +11,17 @@ import type {
   BasketSummary,
   CoPurchase,
   Cart,
+  ForecastDay,
   Health,
   HourlyPoint,
   Insight,
   LiveBasket,
+  MlAnomaly,
+  MlInventoryRow,
+  MlRiskBasket,
+  MlRule,
+  MlSegment,
+  MlSummary,
   PaymentMethod,
   Product,
   Receipt,
@@ -148,6 +155,31 @@ export const api = {
     searches: () => request<SearchReport>('/analytics/searches'),
     live: () => request<{ baskets: LiveBasket[]; active: number }>('/analytics/live'),
     insights: () => request<Insight[]>('/analytics/insights'),
+  },
+
+  // --- Predictive analytics ---
+  ml: {
+    summary: () => request<MlSummary>('/ml/summary'),
+    retrain: () => post<MlSummary>('/ml/train'),
+    forecast: () =>
+      request<{ days: ForecastDay[]; total_qepik: number; metrics: Record<string, number> }>(
+        '/ml/forecast',
+      ),
+    segments: () =>
+      request<{ segments: MlSegment[]; metrics: Record<string, number> }>('/ml/segments'),
+    anomalies: () => request<{ anomalies: MlAnomaly[] }>('/ml/anomalies'),
+    rules: () => request<{ rules: MlRule[] }>('/ml/rules'),
+    inventory: () =>
+      request<{ products: MlInventoryRow[]; critical: number; warning: number; note: string }>(
+        '/ml/inventory',
+      ),
+    risk: () =>
+      request<{
+        baskets: MlRiskBasket[]
+        threshold: number
+        drivers: { feature: string; importance: number }[]
+        metrics: Record<string, number>
+      }>('/ml/risk'),
   },
 
   // --- Demo helpers ---

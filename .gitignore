@@ -10,3 +10,5 @@ build/
 .vite/
 .pytest_cache/
 coverage/
+
+.vercel

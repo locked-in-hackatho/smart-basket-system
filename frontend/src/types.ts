@@ -236,3 +236,85 @@ export interface Insight {
   title: string
   detail: string
 }
+
+// --- Predictive analytics -------------------------------------------------
+
+export interface MlModelCard {
+  key: string
+  kind: 'supervised' | 'unsupervised'
+  task: string
+  algorithm: string
+  target: string
+  metrics: Record<string, number | Record<string, number>>
+}
+
+export interface MlSummary {
+  trained_at: string
+  synthetic: boolean
+  training_rows: number
+  training_days: number
+  hourly_points: number
+  feature_provenance: Record<string, string>
+  excluded: string[]
+  models: MlModelCard[]
+}
+
+export interface ForecastDay {
+  date: string
+  weekday: number
+  forecast_qepik: number
+  last_week_qepik: number | null
+  change_pct: number | null
+}
+
+export interface MlSegment {
+  cluster: number
+  name: string
+  description: string
+  share: number
+  trips: number
+  avg_items: number
+  avg_value_qepik: number
+  avg_minutes: number
+  avg_zones: number
+  abandon_rate: number
+  peak_hour: number
+}
+
+export interface MlAnomaly {
+  ts: string
+  score: number
+  revenue_qepik: number
+  trips: number
+  avg_basket_qepik: number
+  avg_checkout_seconds: number
+  reason: string
+}
+
+export interface MlRule {
+  antecedent: string
+  consequent: string
+  support: number
+  confidence: number
+  lift: number
+  baskets: number
+}
+
+export interface MlInventoryRow {
+  product: string
+  stock: number
+  daily_sales: number
+  days_left: number
+  risk: 'critical' | 'warning' | 'ok'
+  reorder_units: number
+}
+
+export interface MlRiskBasket {
+  basket_id: string
+  status: string
+  item_count: number
+  value_qepik: number
+  zone_name: string | null
+  risk: number
+  flagged: boolean
+}

@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Bar,
   BarChart,
@@ -19,6 +20,7 @@ import {
   YAxis,
 } from 'recharts'
 import {
+  Brain,
   Clock,
   Database,
   Lightbulb,
@@ -177,6 +179,13 @@ export default function Admin() {
       wide
       actions={
         <div className="flex gap-2">
+          <Link
+            to="/insights"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-semibold text-white transition hover:bg-violet-700"
+          >
+            <Brain className="size-4" aria-hidden />
+            Proqnoz və ML
+          </Link>
           <button
             type="button"
             disabled={busy}

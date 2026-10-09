@@ -5,5 +5,8 @@ pydantic-settings
 python-dotenv
 rapidfuzz
 httpx
-# Postgres driver for the deployed database.
+# Postgres driver, used when DATABASE_URL points at a hosted database.
 psycopg[binary]
+# Predictive analytics (see app/services/ml.py).
+scikit-learn
+numpy
