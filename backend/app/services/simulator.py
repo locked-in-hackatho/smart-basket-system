@@ -164,16 +164,22 @@ def simulate(db: Session, sessions: int = 500, days: int = 14, seed: int = 42) -
     created = 0
     abandoned = 0
 
-    for _index in range(sessions):
-        started = _pick_timestamp(rng, days)
-        basket = rng.choice(baskets)
-        clock = started
+    # Create every session up front in one round trip. Flushing once per
+    # session is free against a local SQLite file, but against a hosted
+    # database each flush is a network round trip, and 500 of them turned a
+    # two-second job into over a minute.
+    planned = [
+        (_pick_timestamp(rng, days), rng.choice(baskets)) for _ in range(sessions)
+    ]
+    shopping_rows = [
+        ShoppingSession(basket_id=basket.id, status="active", started_at=started)
+        for started, basket in planned
+    ]
+    db.add_all(shopping_rows)
+    db.flush()
 
-        shopping = ShoppingSession(
-            basket_id=basket.id, status="active", started_at=started
-        )
-        db.add(shopping)
-        db.flush()  # assigns the id without a round trip per event
+    for (started, basket), shopping in zip(planned, shopping_rows):
+        clock = started
 
         def log(
             event_type: str,

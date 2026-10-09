@@ -8,3 +8,5 @@ pytest
 httpx
 # starlette's TestClient prefers httpx2; without it pytest warns on every run.
 httpx2
+# Postgres driver, used when DATABASE_URL points at a hosted database.
+psycopg[binary]
