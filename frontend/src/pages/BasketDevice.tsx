@@ -7,12 +7,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Loader2, Minus, Plus, QrCode, ShoppingBasket } from 'lucide-react'
+import { Loader2, Map, Minus, Plus, QrCode, ScanLine, ShoppingBasket } from 'lucide-react'
 
 import { api, ApiError } from '../api'
 import BarcodeScanner from '../components/BarcodeScanner'
 import CartList from '../components/CartList'
 import QrModal from '../components/QrModal'
+import StoreMap from '../components/StoreMap'
 import { useToast } from '../components/Toast'
 import { Card, EmptyState, ErrorNote, Page, Spinner, StatusChip } from '../components/ui'
 import { beepError, beepPaid, beepRemove, beepSuccess } from '../utils/feedback'
@@ -32,6 +33,7 @@ export default function BasketDevice() {
   const [busy, setBusy] = useState(false)
   const [showQr, setShowQr] = useState(false)
   const [paidTotal, setPaidTotal] = useState<number | null>(null)
+  const [tab, setTab] = useState<'shop' | 'map'>('shop')
 
   // Remembered across polls so a payment elsewhere can be detected here.
   const sessionRef = useRef<number | null>(null)
@@ -76,6 +78,7 @@ export default function BasketDevice() {
     setCart(null)
     setPaidTotal(null)
     setMode('add')
+    setTab('shop')
     load()
   }, [basketId, load])
 
@@ -125,6 +128,12 @@ export default function BasketDevice() {
     runCartAction(
       () => api.setItemQty(basketId, itemId, qty),
       () => (qty <= 0 ? beepRemove() : beepSuccess()),
+    )
+
+  const changeZone = (zoneCode: string, zoneName: string) =>
+    runCartAction(
+      () => api.setZone(basketId, zoneCode),
+      () => toast.info(`Zona: ${zoneName}`),
     )
 
   const removeItem = (itemId: number) =>
@@ -248,26 +257,70 @@ export default function BasketDevice() {
         </button>
       </div>
 
-      <div className="mt-3">
-        <BarcodeScanner onScan={handleScan} disabled={busy} />
+      <div className="mt-3 flex gap-1 rounded-xl bg-slate-100 p-1">
+        {(
+          [
+            ['shop', 'Alış-veriş', ScanLine],
+            ['map', 'Xəritə', Map],
+          ] as const
+        ).map(([id, label, Icon]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setTab(id)}
+            aria-pressed={tab === id}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 font-semibold transition ${
+              tab === id
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Icon className="size-4" aria-hidden />
+            {label}
+          </button>
+        ))}
       </div>
 
-      <div className="mt-4">
-        {cart.items.length === 0 ? (
-          <EmptyState
-            icon={<ShoppingBasket className="size-9" aria-hidden />}
-            title="Məhsulu skan edərək alış-verişə başlayın"
-            hint="Barkodu kamera ilə oxudun, skanerdən keçirin və ya “Demo məhsullar” siyahısından seçin."
+      {tab === 'shop' ? (
+        <>
+          <div className="mt-3">
+            <BarcodeScanner onScan={handleScan} disabled={busy} />
+          </div>
+
+          <div className="mt-4">
+            {cart.items.length === 0 ? (
+              <EmptyState
+                icon={<ShoppingBasket className="size-9" aria-hidden />}
+                title="Məhsulu skan edərək alış-verişə başlayın"
+                hint="Barkodu kamera ilə oxudun, skanerdən keçirin və ya “Demo məhsullar” siyahısından seçin."
+              />
+            ) : (
+              <CartList
+                items={cart.items}
+                onChangeQty={changeQty}
+                onRemove={removeItem}
+                disabled={busy}
+              />
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="mt-3">
+          <StoreMap
+            currentZone={cart.current_zone?.code ?? null}
+            onZoneClick={(zone) => changeZone(zone.code, zone.name)}
           />
-        ) : (
-          <CartList
-            items={cart.items}
-            onChangeQty={changeQty}
-            onRemove={removeItem}
-            disabled={busy}
-          />
-        )}
-      </div>
+          <p className="mt-2 text-center text-sm text-slate-500">
+            {cart.current_zone
+              ? `Hazırda: ${cart.current_zone.name}`
+              : 'Zona hələ müəyyən edilməyib'}
+          </p>
+          <p className="mt-1 text-center text-xs text-slate-400">
+            Zonaya toxunaraq yeri dəyişə bilərsiniz. Real versiyada bu, BLE mayakları
+            ilə avtomatik baş verir.
+          </p>
+        </div>
+      )}
 
       {showQr && <QrModal basketId={cart.basket_id} onClose={() => setShowQr(false)} />}
     </Page>

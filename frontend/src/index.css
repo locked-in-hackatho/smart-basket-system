@@ -43,6 +43,40 @@ body {
   animation: toast-in 180ms ease-out;
 }
 
+/* Store map: a flashing zone outline ("it is over there") and a slow pulse
+   under the "you are here" dot. */
+@keyframes zone-flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.animate-zone-flash {
+  animation: zone-flash 1s ease-in-out infinite;
+}
+
+@keyframes ping-slow {
+  0% {
+    transform: scale(0.75);
+    opacity: 0.8;
+  }
+  75%,
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+.animate-ping-slow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ping-slow 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
 /* Touch targets on the basket screen must stay finger-sized. */
 @media (pointer: coarse) {
   button,
