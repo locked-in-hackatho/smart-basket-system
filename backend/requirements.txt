@@ -6,3 +6,5 @@ python-dotenv
 rapidfuzz
 pytest
 httpx
+# starlette's TestClient prefers httpx2; without it pytest warns on every run.
+httpx2
