@@ -81,3 +81,36 @@ class LookupIn(BaseModel):
 
 class PayIn(BaseModel):
     method: str  # "cash" | "card"
+
+
+# --- Catalogue management -------------------------------------------------
+
+
+class ProductCreate(BaseModel):
+    barcode: str
+    name: str
+    price_qepik: int
+    zone_code: str
+    category: str = ""
+    stock: int = 0
+    emoji: str = "📦"
+    keywords: str = ""
+    level: str | None = None
+
+
+class ProductUpdate(BaseModel):
+    """Every field optional: only what is sent is changed."""
+
+    barcode: str | None = None
+    name: str | None = None
+    price_qepik: int | None = None
+    zone_code: str | None = None
+    category: str | None = None
+    stock: int | None = None
+    emoji: str | None = None
+    keywords: str | None = None
+    level: str | None = None
+
+
+class BarcodeCheck(BaseModel):
+    barcode: str

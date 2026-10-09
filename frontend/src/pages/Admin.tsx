@@ -22,6 +22,7 @@ import {
 import {
   Brain,
   Clock,
+  Package,
   Database,
   Lightbulb,
   RefreshCw,
@@ -179,6 +180,13 @@ export default function Admin() {
       wide
       actions={
         <div className="flex gap-2">
+          <Link
+            to="/catalog"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            <Package className="size-4" aria-hidden />
+            Kataloq
+          </Link>
           <Link
             to="/insights"
             className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-semibold text-white transition hover:bg-violet-700"

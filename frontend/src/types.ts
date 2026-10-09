@@ -318,3 +318,16 @@ export interface MlRiskBasket {
   risk: number
   flagged: boolean
 }
+
+/** What an admin fills in when adding a product. */
+export interface ProductDraft {
+  barcode: string
+  name: string
+  price_qepik: number
+  zone_code: string
+  category?: string
+  stock?: number
+  emoji?: string
+  keywords?: string
+  level?: string | null
+}

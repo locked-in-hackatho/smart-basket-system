@@ -1,11 +1,13 @@
-"""Product and zone catalogue (read-only)."""
+"""Product and zone catalogue: public reads, PIN-gated edits."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import Product, Zone
-from app.schemas import ProductOut, ZoneOut
+from app.schemas import BarcodeCheck, ProductCreate, ProductOut, ProductUpdate, ZoneOut
+from app.security import require_pin
+from app.services import catalog
 
 router = APIRouter(tags=["catalogue"])
 
@@ -61,3 +63,47 @@ def get_product_by_barcode(
     if product is None:
         raise HTTPException(status_code=404, detail="Bu barkodla məhsul tapılmadı")
     return to_product_out(product, load_zones(session))
+
+
+# --- Admin: add, edit and remove products ---------------------------------
+# The barcode is the product's identity — it is what the scanner reads — so
+# these are the endpoints that make a new item scannable at all.
+
+
+@router.post("/api/products", response_model=ProductOut, status_code=201,
+             dependencies=[Depends(require_pin)])
+def create_product(
+    body: ProductCreate, session: Session = Depends(get_session)
+) -> ProductOut:
+    product = catalog.create_product(session, **body.model_dump())
+    return to_product_out(product, load_zones(session))
+
+
+@router.patch("/api/products/{product_id}", response_model=ProductOut,
+              dependencies=[Depends(require_pin)])
+def update_product(
+    product_id: int, body: ProductUpdate, session: Session = Depends(get_session)
+) -> ProductOut:
+    product = catalog.update_product(
+        session, product_id, body.model_dump(exclude_unset=True)
+    )
+    return to_product_out(product, load_zones(session))
+
+
+@router.delete("/api/products/{product_id}", status_code=204,
+               dependencies=[Depends(require_pin)])
+def delete_product(product_id: int, session: Session = Depends(get_session)) -> None:
+    catalog.delete_product(session, product_id)
+
+
+@router.post("/api/products/check-barcode", dependencies=[Depends(require_pin)])
+def check_barcode(body: BarcodeCheck, session: Session = Depends(get_session)) -> dict:
+    """Validate a barcode and say whether it is already taken, before saving."""
+    code = catalog.clean_barcode(body.barcode)
+    existing = session.exec(select(Product).where(Product.barcode == code)).first()
+    return {
+        "barcode": code,
+        "valid": True,
+        "exists": existing is not None,
+        "product": existing.name if existing else None,
+    }

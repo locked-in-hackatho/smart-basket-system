@@ -24,6 +24,7 @@ import type {
   MlSummary,
   PaymentMethod,
   Product,
+  ProductDraft,
   Receipt,
   RouteResponse,
   ScanMode,
@@ -111,6 +112,18 @@ export const api = {
     request<Product[]>(`/products${q ? `?q=${encodeURIComponent(q)}` : ''}`),
   productByBarcode: (barcode: string) =>
     request<Product>(`/products/barcode/${encodeURIComponent(barcode)}`),
+
+  // --- Catalogue management (admin) ---
+  createProduct: (body: ProductDraft) => post<Product>('/products', body),
+  updateProduct: (id: number, body: Partial<ProductDraft>) =>
+    request<Product>(`/products/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteProduct: (id: number) =>
+    request<void>(`/products/${id}`, { method: 'DELETE' }),
+  checkBarcode: (barcode: string) =>
+    post<{ barcode: string; valid: boolean; exists: boolean; product: string | null }>(
+      '/products/check-barcode',
+      { barcode },
+    ),
 
   // --- Baskets ---
   baskets: () => request<BasketSummary[]>('/baskets'),

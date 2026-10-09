@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { ToastProvider } from './components/Toast'
 import Admin from './pages/Admin'
 import BasketDevice from './pages/BasketDevice'
+import Catalog from './pages/Catalog'
 import Checkout from './pages/Checkout'
 import Demo from './pages/Demo'
 import Home from './pages/Home'
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/insights" element={<Insights />} />
+        <Route path="/catalog" element={<Catalog />} />
         <Route path="/print" element={<PrintCodes />} />
         <Route path="/demo" element={<Demo />} />
         <Route path="*" element={<Navigate to="/" replace />} />

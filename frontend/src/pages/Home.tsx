@@ -7,6 +7,7 @@ import {
   Brain,
   ChevronRight,
   MonitorPlay,
+  Package,
   Printer,
   ScanLine,
   ShoppingBasket,
@@ -46,6 +47,13 @@ const CARDS = [
     title: 'Proqnoz və ML',
     text: 'Satış proqnozu, davranış qrupları, anomaliyalar və stok riski — sintetik data üzərində.',
     tone: 'bg-fuchsia-600',
+  },
+  {
+    to: '/catalog',
+    icon: Package,
+    title: 'Kataloq',
+    text: 'Məhsul və barkodları əlavə edin, dəyişin, silin — rəf yeri avtomatik təyin olunur.',
+    tone: 'bg-amber-600',
   },
   {
     to: '/print',

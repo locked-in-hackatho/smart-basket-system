@@ -5,25 +5,16 @@ data, so once the app is deployed anywhere public they are gated behind
 `ADMIN_PIN`; with no PIN set (the local default) they stay open.
 """
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends
 from sqlmodel import Session, SQLModel
 
 import app.models  # noqa: F401  (registers the tables)
-from app.config import settings
 from app.db import engine, get_session
+from app.security import require_pin
 from app.seed import seed
 from app.services.simulator import simulate
 
 router = APIRouter(prefix="/api/dev", tags=["dev"])
-
-
-def require_pin(x_admin_pin: str | None = Header(default=None)) -> None:
-    """Gate the destructive endpoints when a PIN is configured."""
-    expected = settings.admin_pin.strip()
-    if not expected:
-        return  # local development: no PIN, no gate
-    if (x_admin_pin or "").strip() != expected:
-        raise HTTPException(status_code=401, detail="Admin PIN tələb olunur")
 
 
 @router.post("/simulate", dependencies=[Depends(require_pin)])
