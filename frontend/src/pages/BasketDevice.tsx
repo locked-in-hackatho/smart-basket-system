@@ -11,6 +11,7 @@ import { ListChecks, Loader2, Map, QrCode, Search, ShoppingBasket, Sparkles } fr
 
 import { api, ApiError } from '../api'
 import ScannerSimulator from '../components/ScannerSimulator'
+import type { ScanOutcome } from '../components/BarcodeScanner'
 import CartList from '../components/CartList'
 import QrModal from '../components/QrModal'
 import ProductFinder from '../components/ProductFinder'
@@ -37,6 +38,7 @@ export default function BasketDevice() {
   const [showFinder, setShowFinder] = useState(false)
   const [target, setTarget] = useState<FoundProduct | null>(null)
   const [map, setMap] = useState<StoreMapData | null>(null)
+  const [outcome, setOutcome] = useState<ScanOutcome | null>(null)
 
   // Remembered across polls so a payment elsewhere can be detected here.
   const sessionRef = useRef<number | null>(null)
@@ -98,6 +100,12 @@ export default function BasketDevice() {
       .catch(() => setMap(null))
   }, [])
 
+  /** Show a scan result over the camera, then let it fade back to "searching". */
+  const reportOutcome = useCallback((next: ScanOutcome) => {
+    setOutcome(next)
+    window.setTimeout(() => setOutcome(null), 3000)
+  }, [])
+
   async function runCartAction(action: () => Promise<Cart>, onOk: (next: Cart) => void) {
     setBusy(true)
     try {
@@ -108,6 +116,7 @@ export default function BasketDevice() {
       const message = cause instanceof ApiError ? cause.message : 'Xəta baş verdi'
       beepError()
       toast.error(message)
+      reportOutcome({ ok: false, text: message })
     } finally {
       setBusy(false)
     }
@@ -126,6 +135,11 @@ export default function BasketDevice() {
           setTarget(null)
           setShowFinder(false)
         }
+
+        reportOutcome({
+          ok: true,
+          text: `${product.emoji} ${product.name} · ${formatAZN(product.price_qepik)}`,
+        })
 
         if (mode === 'add') {
           beepSuccess()
@@ -271,7 +285,11 @@ export default function BasketDevice() {
           </div>
 
           <div className="mt-4">
-            <ScannerSimulator onDetect={handleDetection} disabled={busy} />
+            <ScannerSimulator
+              onDetect={handleDetection}
+              outcome={outcome}
+              disabled={busy}
+            />
           </div>
         </>
       ) : (

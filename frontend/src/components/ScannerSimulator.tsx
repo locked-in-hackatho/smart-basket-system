@@ -12,13 +12,17 @@ import { useState } from 'react'
 import { ChevronDown, Minus, Plus, Wrench } from 'lucide-react'
 
 import BarcodeScanner from './BarcodeScanner'
+import type { ScanOutcome } from './BarcodeScanner'
 import type { ScanMode } from '../types'
 
 export default function ScannerSimulator({
   onDetect,
+  outcome = null,
   disabled = false,
 }: {
   onDetect: (barcode: string, mode: ScanMode) => void
+  /** What the last detection produced, shown over the camera. */
+  outcome?: ScanOutcome | null
   disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
@@ -88,6 +92,7 @@ export default function ScannerSimulator({
 
           <BarcodeScanner
             onScan={(barcode) => onDetect(barcode, mode)}
+            outcome={outcome}
             disabled={disabled}
           />
         </div>

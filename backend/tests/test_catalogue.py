@@ -74,3 +74,30 @@ def test_zones_come_from_the_store_plan() -> None:
 
     kinds = {zone["kind"] for zone in ZONES}
     assert {"entrance", "checkout", "sales"} <= kinds
+
+
+def test_products_with_a_real_printed_barcode_are_valid() -> None:
+    """Some products carry the barcode printed on the actual packaging, so a
+    physical item can be scanned at the demo table. Those must be real
+    EAN-13s too — they are not generated, so nothing else checks them."""
+    explicit = [p for p in PRODUCTS if p.get("barcode")]
+    assert explicit, "expected at least one real-world product"
+
+    for product in explicit:
+        barcode = product["barcode"]
+        assert len(barcode) == 13 and barcode.isdigit(), product["name"]
+        assert ean13_check_digit(barcode[:12]) == int(barcode[12]), product["name"]
+
+    codes = [p["barcode"] for p in explicit]
+    assert len(set(codes)) == len(codes), "real barcodes must be unique"
+    generated = {make_barcode(i) for i in range(1, len(PRODUCTS) + 1)}
+    assert not (set(codes) & generated), "a real barcode must not collide"
+
+
+def test_fuse_tea_is_scannable(client) -> None:
+    """The bottle we demo with: scanning it must name the product."""
+    response = client.get("/api/products/barcode/5449000189349")
+    assert response.status_code == 200
+    product = response.json()
+    assert product["name"] == "Fuse Tea 500ml"
+    assert product["price_qepik"] == 100

@@ -143,6 +143,18 @@ Fiziki səbət cihazı olmadığı üçün telefonun kamerası onun skanerini ə
 3. **"Kamera"** tabına keçin və brauzer soruşanda **"Allow"** seçin.
 4. Barkodu kameraya tutun — oxunan kimi səbətə düşür.
 
+Kamera açılanda yuxarıda status zolağı görünür:
+
+| Zolaq | Mənası |
+|---|---|
+| `Barkod axtarılır…` | Kamera işləyir, kadrda hələ barkod yoxdur |
+| `Oxunmadı · 3 san — barkodu yaxınlaşdırın` | 3 saniyədir axtarır, tapmır — yaxınlaşdırın və ya işığı artırın |
+| `✅ 🧃 Fuse Tea 500ml · 1.00 ₼` | Oxundu və səbətə əlavə olundu |
+
+**Eyni məhsul təkrar sayılmır.** Barkod kadrda qaldığı müddətcə bir dəfə
+sayılır; ikinci dəfə saymaq üçün onu kadrdan çıxarıb yenidən gətirmək lazımdır
+(real skaner də belə işləyir).
+
 **Vacib:** barkodu **kadrın təxminən yarısını dolduracaq qədər yaxın** tutun.
 Ölçdük: barkod kadrın 50–80%-ini tutanda yarım saniyədə oxunur; 30%-ə düşəndə
 (uzaqdan tutulanda) 640p kamerada ümumiyyətlə oxunmur, çünki barkodun hər
@@ -150,6 +162,19 @@ zolağına 2 pikseldən az düşür. Tətbiq kameradan 720p istəyir, ona görə
 telefonlarda nisbətən uzaqdan da oxuyur — amma yaxın tutmaq həmişə daha sürətlidir.
 
 Kassada (`/checkout`) eyni kamera səbətin **QR kodunu** oxuyur.
+
+### Real məhsulla yoxlama
+
+Kataloqda real barkodlu bir məhsul var ki, mağazadan alınmış şüşəni birbaşa
+skan edə biləsiniz:
+
+| Məhsul | Barkod | Qiymət |
+|---|---|---|
+| 🧃 Fuse Tea 500ml | `5449000189349` | 1.00 ₼ |
+
+Başqa real məhsul əlavə etmək üçün `backend/app/seed.py`-dəki `PRODUCTS`
+siyahısına `"barcode": "..."` sahəsi olan sətir əlavə edin və `npm run seed`
+işlədin. Barkod etibarlı EAN-13 olmalıdır (test bunu yoxlayır).
 
 > Kamera işləməsə, demo dayanmır: "Demo məhsullar" siyahısı, əl ilə barkod
 > girişi və USB skaner həmişə əlçatandır.

@@ -232,6 +232,13 @@ PRODUCTS: list[dict] = [
     {"name": "Ayran 500ml", "zone": "H", "category": "İçkilər",
      "price_qepik": 139, "aisle": "Rəf 9", "shelf": "Aşağı", "stock": 36,
      "emoji": "🥛", "keywords": "ayran, айран, turs icki"},
+    # A real product with its real printed barcode, so a physical bottle can
+    # be scanned at the demo table rather than a printed sheet.
+    {"name": "Fuse Tea 500ml", "zone": "H", "category": "İçkilər",
+     "barcode": "5449000189349",
+     "price_qepik": 100, "aisle": "Rəf 9", "shelf": "Orta", "stock": 48,
+     "emoji": "🧃", "keywords": "fuse tea, fusetea, fyuz ti, buzlu cay, "
+     "soyuq cay, ice tea, iced tea, ледяной чай, холодный чай, çay"},
 
     # Şirniyyat və Qəlyanaltı (I)
     {"name": "Şokolad 90q", "zone": "I", "category": "Şirniyyat",
@@ -364,9 +371,13 @@ def seed(session: Session) -> dict:
 
     # The barcode is derived from the list position, so re-seeding keeps the
     # same barcode for the same product (already printed codes stay valid).
+    # A product may instead carry its real printed barcode, so that an actual
+    # item off a shelf can be scanned during a demo.
     for index, data in enumerate(PRODUCTS, start=1):
-        barcode = make_barcode(index)
-        fields = {key: value for key, value in data.items() if key != "zone"}
+        barcode = data.get("barcode") or make_barcode(index)
+        fields = {
+            key: value for key, value in data.items() if key not in ("zone", "barcode")
+        }
         fields["barcode"] = barcode
         fields["zone_id"] = zones[data["zone"]].id
         fields.update(placements[index - 1])

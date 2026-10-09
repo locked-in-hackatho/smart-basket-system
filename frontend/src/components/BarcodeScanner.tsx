@@ -21,16 +21,37 @@ import { api } from '../api'
 import { formatAZN } from '../utils/format'
 import type { Product } from '../types'
 
-/** The camera decodes ~10 frames a second; ignore repeats inside this window. */
-const DUPLICATE_WINDOW_MS = 1500
+/**
+ * A barcode held in front of the camera decodes on every frame. Counting the
+ * same code again requires the camera to first see this many frames without
+ * it — i.e. the item has to leave the view. Otherwise holding a bottle still
+ * adds it over and over.
+ */
+const FRAMES_TO_CLEAR = 6
+/**
+ * Belt and braces only: if the decoder somehow never reports an empty frame,
+ * stop blocking the same code after this long. Deliberately generous — a
+ * shopper moves the item away in a second or two, so this should never fire
+ * in normal use. At six seconds it did, and a bottle held still was counted
+ * twice.
+ */
+const SAME_CODE_TIMEOUT_MS = 30000
 /** A human types slower than this; anything faster is a barcode gun. */
 const SCANNER_GAP_MS = 50
 const CAMERA_ELEMENT_ID = 'barcode-camera'
 
 type Tab = 'camera' | 'manual' | 'products'
 
+export interface ScanOutcome {
+  ok: boolean
+  /** What to show — a product name on success, the error otherwise. */
+  text: string
+}
+
 interface Props {
   onScan: (barcode: string) => void
+  /** Result of the last scan, shown over the camera for a few seconds. */
+  outcome?: ScanOutcome | null
   /** Hide the demo-product grid where it makes no sense (the till). */
   showProducts?: boolean
   /** QR-only mode for the checkout screen. */
@@ -40,6 +61,7 @@ interface Props {
 
 export default function BarcodeScanner({
   onScan,
+  outcome = null,
   showProducts = true,
   qrOnly = false,
   disabled = false,
@@ -61,6 +83,16 @@ export default function BarcodeScanner({
   disabledRef.current = disabled
 
   const lastScanRef = useRef<{ code: string; at: number }>({ code: '', at: 0 })
+  /** Frames seen with no code since the last accepted camera decode. */
+  const clearFramesRef = useRef(0)
+
+  /**
+   * A live read-out over the camera. Without it the camera looks identical
+   * whether it is working and seeing nothing, or quietly failing — which is
+   * exactly the moment a demo goes wrong.
+   */
+  const [searchingFor, setSearchingFor] = useState(0)
+  const lastDecodeRef = useRef(0)
 
   /**
    * `source` matters: only the camera repeats a code by itself, so only the
@@ -73,9 +105,14 @@ export default function BarcodeScanner({
 
     if (source === 'camera') {
       const now = Date.now()
+      lastDecodeRef.current = now
       const last = lastScanRef.current
-      if (code === last.code && now - last.at < DUPLICATE_WINDOW_MS) return
+      const isRepeat = code === last.code
+      const cleared = clearFramesRef.current >= FRAMES_TO_CLEAR
+      const stale = now - last.at > SAME_CODE_TIMEOUT_MS
+      if (isRepeat && !cleared && !stale) return
       lastScanRef.current = { code, at: now }
+      clearFramesRef.current = 0
     }
     onScanRef.current(code)
   }
@@ -170,7 +207,9 @@ export default function BarcodeScanner({
           },
           (text) => emit(text, 'camera'),
           () => {
-            // Fired constantly for frames with no code in them; ignore.
+            // Fires for every frame with no code in it — which is how we
+            // know the last item has been taken out of view.
+            clearFramesRef.current += 1
           },
         )
         if (stopped) return
@@ -199,6 +238,22 @@ export default function BarcodeScanner({
       }
     }
   }, [tab, qrOnly])
+
+  // Tick once a second while the camera is on, so the shopper can tell the
+  // difference between "looking" and "stuck".
+  useEffect(() => {
+    if (tab !== 'camera' || cameraState !== 'on') {
+      setSearchingFor(0)
+      return
+    }
+    const startedAt = Date.now()
+    lastDecodeRef.current = 0
+    const timer = window.setInterval(() => {
+      const since = lastDecodeRef.current || startedAt
+      setSearchingFor(Math.floor((Date.now() - since) / 1000))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [tab, cameraState])
 
   // --- 3. Demo product grid ----------------------------------------------
   useEffect(() => {
@@ -250,10 +305,43 @@ export default function BarcodeScanner({
       <div className="mt-3">
         {tab === 'camera' && (
           <div>
-            <div
-              id={CAMERA_ELEMENT_ID}
-              className="overflow-hidden rounded-xl bg-slate-900 [&_video]:w-full"
-            />
+            <div className="relative">
+              <div
+                id={CAMERA_ELEMENT_ID}
+                className="overflow-hidden rounded-xl bg-slate-900 [&_video]:w-full"
+              />
+              {cameraState === 'on' && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className={`absolute inset-x-0 top-0 z-10 rounded-t-xl px-3 py-2 text-center text-sm font-semibold text-white ${
+                    outcome
+                      ? outcome.ok
+                        ? 'bg-brand-600'
+                        : 'bg-red-600'
+                      : searchingFor >= 1
+                        ? 'bg-slate-900/80'
+                        : 'bg-slate-900/60'
+                  }`}
+                >
+                  {outcome ? (
+                    <>
+                      {outcome.ok ? '✅ ' : '⚠️ '}
+                      {outcome.text}
+                      {outcome.ok && (
+                        <span className="block text-xs font-medium opacity-90">
+                          Növbəti məhsul üçün barkodu kənara çəkin
+                        </span>
+                      )}
+                    </>
+                  ) : searchingFor >= 1 ? (
+                    <>Oxunmadı · {searchingFor} san — barkodu yaxınlaşdırın</>
+                  ) : (
+                    <>Barkod axtarılır…</>
+                  )}
+                </div>
+              )}
+            </div>
             {cameraState === 'starting' && (
               <p className="flex items-center justify-center gap-2 py-8 text-slate-500">
                 <Loader2 className="size-5 animate-spin" aria-hidden />
