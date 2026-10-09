@@ -223,6 +223,7 @@ def test_payment_reduces_stock(client: TestClient) -> None:
 
 
 def test_scanning_moves_the_basket_into_the_products_zone(client: TestClient) -> None:
+    """Position-based now: scanning puts the basket at that shelf."""
     milk = barcode_of(client, MILK)
     bread = barcode_of(client, BREAD)
 
@@ -231,16 +232,6 @@ def test_scanning_moves_the_basket_into_the_products_zone(client: TestClient) ->
 
     cart = client.post(f"/api/baskets/{BASKET}/scan", json={"barcode": bread}).json()
     assert cart["current_zone"]["name"] == "Çörək və Unlu məmulatlar"
-
-
-def test_manual_zone_change(client: TestClient) -> None:
-    response = client.post(f"/api/baskets/{BASKET}/zone", json={"zone_code": "H"})
-    assert response.status_code == 200
-    assert response.json()["current_zone"]["code"] == "H"
-
-    bad = client.post(f"/api/baskets/{BASKET}/zone", json={"zone_code": "QQ"})
-    assert bad.status_code == 404
-    assert bad.json()["detail"] == "Belə zona yoxdur"
 
 
 def test_basket_listing_shows_running_total(client: TestClient) -> None:

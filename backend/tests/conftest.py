@@ -10,11 +10,6 @@ from pathlib import Path
 
 TEST_DB = Path(tempfile.mkdtemp(prefix="smartbasket-test-")) / "test.db"
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB.as_posix()}"
-# Force the offline assistant: tests must never call a paid API, and must
-# not depend on a key being present in the developer's .env.
-os.environ["AI_PROVIDER"] = "offline"
-os.environ["ANTHROPIC_API_KEY"] = ""
-os.environ["OPENAI_API_KEY"] = ""
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

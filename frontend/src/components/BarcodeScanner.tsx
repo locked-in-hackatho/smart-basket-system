@@ -280,8 +280,8 @@ export default function BarcodeScanner({
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Məhsul axtar…"
-                aria-label="Məhsul axtar"
+                placeholder="Demo məhsul axtar…"
+                aria-label="Demo məhsullar arasında axtar"
                 className="min-h-11 w-full rounded-xl border border-slate-300 pl-9 pr-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
               />
             </label>

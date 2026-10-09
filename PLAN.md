@@ -20,7 +20,8 @@ Qaydalar:
 - Səhv çıxsa, özün düzəlt və davam et; yalnız sistem proqramı quraşdırmaq lazım olanda məndən soruş.
 ```
 
-4. Vaxt azdırsa: **Faza 0–6 = MVP** (demo üçün kifayətdir). Faza 7–10 “wow” effekti verir. Faza 11 opsionaldır.
+4. Vaxt azdırsa: **Faza 0–6 = MVP** (demo üçün kifayətdir). Faza 7, 9 və 10 “wow” effekti verir. Faza 11 opsionaldır.
+   (Faza 8 — köhnə AI köməkçi — ləğv olundu; nömrələr commit tarixçəsi ilə uyğun qalsın deyə dəyişdirilməyib.)
 
 | Faza | Mövzu | Təxmini vaxt |
 |---|---|---|
@@ -31,8 +32,7 @@ Qaydalar:
 | 4 | Səbət cihazı ekranı | 60 dəq |
 | 5 | Kassa ekranı | 40 dəq |
 | 6 | QR / barkod çap səhifəsi → **MVP** | 20 dəq |
-| 7 | Mağaza xəritəsi + zona izləmə | 40 dəq |
-| 8 | AI köməkçi (məhsul yeri tapma) | 50 dəq |
+| 7 | Mağaza xəritəsi + naviqasiya (A\*) | 90 dəq |
 | 9 | Analitika paneli + data simulyatoru | 60 dəq |
 | 10 | Cilalama, demo rejimi, README, pitch materialları | 40 dəq |
 | 11 | Opsional funksiyalar (təsdiqlə) | — |
@@ -47,10 +47,10 @@ Qaydalar:
 
 **Əlavə dəyər:**
 - **Analitika:** səbətlərin hansı zonalarda gəzdiyi, harada nə qədər qaldığı, nələri birlikdə aldığı → mağaza üçün qərar dəstəyi.
-- **AI köməkçi:** müştəri səbətdəki ekrandan “Süd haradadır?” soruşur → AI zona, rəf və xəritədə yeri göstərir.
+- **Məhsul tap (naviqasiya):** müştəri səbətdəki ekranda “süd” yazır → xəritədə dəqiq rəf və oraya gedən yol göstərilir. Yer bazadadır, yol A\* ilə hesablanır — AI yoxdur.
 
 **Sistemdə 4 rol / ekran:**
-1. **Səbət cihazı** (`/basket/:basketId`) — səbətə bərkidilmiş ekran: skan, səbət siyahısı, yekun, AI köməkçi, mini xəritə.
+1. **Səbət cihazı** (`/basket/:basketId`) — səbətə bərkidilmiş ekran: skan, səbət siyahısı, yekun, “Məhsul tap” və xəritə/naviqasiya.
 2. **Kassa** (`/checkout`) — kassir səbət QR-ını oxudur, yekunu görür, ödənişi təsdiq edir.
 3. **Admin / Analitika** (`/admin`) — mağaza menecerinin paneli.
 4. **Çap** (`/print`) — səbət QR kodlarını və demo məhsul barkodlarını çap etmək üçün.
@@ -72,8 +72,8 @@ Qaydalar:
 | Barkod/QR oxuma | `html5-qrcode` (kamera) + klaviatura-skaner dinləyicisi | Həm kamera, həm USB skaner |
 | QR/barkod yaratma | `qrcode.react`, `jsbarcode` | Çap səhifəsi üçün |
 | İkonlar | `lucide-react` | |
-| AI | Anthropic Python SDK, tool use; model `.env`-dən (`claude-haiku-5-5` — sürətli və ucuz) | Açar yoxdursa avtomatik oflayn rejim |
-| Fuzzy axtarış | `rapidfuzz` | Səhv yazılış, AZ/RU/EN sinonimlər |
+| Yol tapma | Öz yazdığımız A\* (xarici kitabxana yox), 4 istiqamət, Manhattan evristikası | Deterministik, oflayn, sürətli |
+| Fuzzy axtarış | `rapidfuzz` + AZ hərf normallaşdırması | Səhv yazılış, AZ/RU/EN sinonimlər |
 | Real-time | Frontend hər 2 saniyədən bir sorğu (polling) | WebSocket-dən sadə və etibarlı |
 | Testlər | pytest + httpx (FastAPI TestClient) | |
 
@@ -105,6 +105,7 @@ Smart Basket/
 │   ├── .env.example
 │   ├── app/
 │   │   ├── main.py
+│   │   ├── store_layout.py
 │   │   ├── config.py
 │   │   ├── db.py
 │   │   ├── models.py
@@ -114,12 +115,11 @@ Smart Basket/
 │   │   │   ├── products.py
 │   │   │   ├── baskets.py
 │   │   │   ├── checkout.py
-│   │   │   ├── assistant.py
 │   │   │   ├── analytics.py
 │   │   │   └── dev.py
 │   │   └── services/
 │   │       ├── cart.py
-│   │       ├── assistant.py
+│   │       ├── navigation.py
 │   │       ├── analytics.py
 │   │       └── simulator.py
 │   └── tests/
@@ -140,7 +140,7 @@ Smart Basket/
             ├── BarcodeScanner.tsx
             ├── CartList.tsx
             ├── StoreMap.tsx
-            ├── AssistantChat.tsx
+            ├── ProductFinder.tsx
             ├── KpiCard.tsx
             └── Toast.tsx
 ```
@@ -177,15 +177,15 @@ events                               -- analitikanın əsası
   id PK, session_id FK, basket_id, type TEXT, zone_id NULL, product_id NULL,
   payload JSON NULL, ts DATETIME
   -- type: "session_start" | "scan_add" | "scan_remove" | "zone_enter" |
-  --       "ai_query" | "checkout_start" | "payment"
+  --       "nav_search" | "nav_route" | "checkout_start" | "payment"
 
 payments
   id PK, session_id FK, amount_qepik INT, method TEXT ("cash" | "card"),
   checkout_seconds REAL, ts
 
-ai_queries
-  id PK, session_id NULL, basket_id, question TEXT, answer TEXT,
-  matched_product_id NULL, found BOOL, mode TEXT ("ai" | "offline"), ts
+search_queries
+  id PK, session_id NULL, basket_id, query TEXT,
+  top_product_id NULL, found BOOL, ts
 ```
 
 **QR kod formatı:** `SMARTBASKET:BSK-001`
@@ -196,7 +196,7 @@ ai_queries
 
 | Metod | Yol | Təsvir |
 |---|---|---|
-| GET | `/api/health` | `{status: "ok", ai_mode: "ai" \| "offline"}` |
+| GET | `/api/health` | `{status: "ok", store_name}` |
 | GET | `/api/products` | Bütün məhsullar (`?q=` axtarış) |
 | GET | `/api/products/barcode/{code}` | Barkoda görə məhsul, yoxdursa 404 |
 | GET | `/api/zones` | Zonalar (xəritə üçün) |
@@ -209,13 +209,16 @@ ai_queries
 | POST | `/api/checkout/lookup` | `{qr_payload}` → səbət + yekun, səbəti kilidləyir |
 | POST | `/api/checkout/{session_id}/pay` | `{method}` → ödəniş, səbəti sıfırlayır |
 | POST | `/api/checkout/{session_id}/cancel` | Kassadan geri qaytarır |
-| POST | `/api/assistant/ask` | `{basket_id, message}` → `{answer, products[], highlight_zone, mode}` |
+| GET | `/api/map` | Mağaza planı (şəbəkə, rəflər, giriş, kassalar) |
+| GET | `/api/products/search` | `?q=&basket_id=` → ən uyğun 8 məhsul + səbətdən məsafə |
+| GET | `/api/navigation/route` | `?basket_id=&product_id=` → yol, məsafə, vaxt, addımlar |
+| POST | `/api/baskets/{id}/position` | `{x, y}` — səbətin yeri (demo üçün əl ilə) |
 | GET | `/api/analytics/summary` | KPI-lar |
 | GET | `/api/analytics/top-products` | Ən çox satılanlar |
 | GET | `/api/analytics/zones` | Zona ziyarətləri, orta qalma vaxtı, konversiya |
 | GET | `/api/analytics/hourly` | Saatlara görə trafik |
 | GET | `/api/analytics/co-purchase` | Birlikdə alınan məhsul cütləri |
-| GET | `/api/analytics/ai-queries` | Ən çox axtarılan və tapılmayan məhsullar |
+| GET | `/api/analytics/searches` | Ən çox axtarılan, tapılmayan və ən çox yolu soruşulan məhsullar |
 | GET | `/api/analytics/live` | Hazırda aktiv səbətlər və onların zonası |
 | POST | `/api/analytics/ai-report` | AI ilə tövsiyə hesabatı |
 | POST | `/api/dev/simulate?sessions=500` | Keçmiş data generasiyası |
@@ -238,12 +241,11 @@ ai_queries
 4. `CLAUDE.md` yarat — Bölmə 2-dəki “Əsas prinsiplər”i ora köçür.
 5. **Backend:**
    - `backend/` yarat, içində virtual mühit: `python -m venv .venv`
-   - `requirements.txt`: `fastapi`, `uvicorn[standard]`, `sqlmodel`, `pydantic-settings`, `python-dotenv`, `anthropic`, `rapidfuzz`, `pytest`, `httpx`
+   - `requirements.txt`: `fastapi`, `uvicorn[standard]`, `sqlmodel`, `pydantic-settings`, `python-dotenv`, `rapidfuzz`, `pytest`, `httpx`
+     (Faza 9-dakı AI tövsiyələr üçün lazım olarsa, model SDK-sı həmin fazada əlavə edilir.)
    - Paketləri venv-in python-u ilə quraşdır.
    - `.env.example`:
      ```
-     ANTHROPIC_API_KEY=
-     AI_MODEL=claude-haiku-5-5
      DATABASE_URL=sqlite:///./smartbasket.db
      STORE_NAME=Smart Market
      ADMIN_PIN=
@@ -271,7 +273,7 @@ ai_queries
 **Məqsəd:** Baza cədvəlləri, realist demo məhsullar, əsas oxuma endpoint-ləri.
 
 **Addımlar:**
-1. `config.py` — `.env`-i pydantic-settings ilə oxu. `ai_mode` = açar varsa `"ai"`, yoxsa `"offline"`.
+1. `config.py` — `.env`-i pydantic-settings ilə oxu (`DATABASE_URL`, `STORE_NAME`, `ADMIN_PIN`).
 2. `db.py` — SQLModel engine, `get_session` dependency, startup-da `create_all`.
 3. `models.py` — Bölmə 4-dəki bütün cədvəllər.
 4. `seed.py` (`python -m app.seed --reset` ilə işləsin, təkrar işlədiləndə dublikat yaratmasın):
@@ -424,55 +426,129 @@ ai_queries
 
 ---
 
-## FAZA 7 — Mağaza xəritəsi və zona izləmə
+## FAZA 7 — Mağaza xəritəsi və naviqasiya
 
-**Məqsəd:** Səbətin mağazada harada olduğunu göstərmək (AI və analitika üçün baza).
+**Məqsəd:** Müştəri məhsulu axtarır → xəritədə onun dəqiq yeri və oraya gedən yol göstərilir.
 
-**Addımlar:**
-1. **`StoreMap` komponenti** — SVG, `zones` cədvəlinin şəbəkə koordinatlarından qurulur. Rəngli düzbucaqlılar, zona adları, Giriş və Kassa işarələri.
-   - Props: `highlightZone` (yanıb-sönən çərçivə), `currentZone` (pulsasiya edən nöqtə “Siz buradasınız”), `heat` (zona → 0..1 intensivlik, admin üçün), `dots` (canlı səbətlər), `onZoneClick`.
-2. **Zona simulyasiyası:** səbət ekranında “Xəritə” tabı; zonaya klikləyəndə `POST /api/baskets/{id}/zone`. Kiçik izah mətni: “Real versiyada BLE mayakları ilə avtomatik”.
-3. **Qalma vaxtı (dwell time):** zona üçün qalma vaxtı = bu `zone_enter` ilə növbəti `zone_enter` (və ya ödəniş) arasındakı fərq. Bu analitikada hesablanacaq.
-4. Skan zamanı avtomatik zona dəyişməsi (Faza 2-də yazılıb) xəritədə görünsün.
+> **Əsas qayda:** məhsulun yeri və ona gedən yol **heç vaxt AI ilə təxmin edilmir**.
+> Yer bazada dəqiq koordinat kimi yazılıb, yol isə A\* alqoritmi ilə hesablanır.
+> Nəticə deterministikdir, oflayn işləyir və API xərci yoxdur.
 
-**Yoxlama:**
-- [ ] Xəritə düzgün çəkilir, cari zona nöqtə ilə görünür
-- [ ] Məhsul skan edəndə nöqtə həmin məhsulun zonasına keçir
+### 7.1 Mağaza planı (tək həqiqət mənbəyi)
 
-**Commit:** `feat: store map and zone tracking simulation`
+`backend/app/store_layout.py` — mağaza ASCII şəbəkə kimi təsvir olunur, təxminən
+**28 sütun × 18 sətir**, 1 xana = 1 metr. Komanda bu faylı redaktə edərək real
+mağazanın planını bir neçə dəqiqəyə çəkə bilər.
 
----
+| Simvol | Mənası |
+|---|---|
+| `#` | divar |
+| `.` | keçid (yerimək mümkündür) |
+| `@` | giriş |
+| `$` | kassa |
+| `A`–`Z` | həmin zonaya aid rəf xanası (yerimək mümkün deyil) |
 
-## FAZA 8 — AI köməkçi
+Plan realist olmalıdır: kənarlarda divarlar; giriş aşağı-solda, kassalar aşağıda;
+perimetr boyu təzə məhsullar (meyvə-tərəvəz, ət, süd); ortada 6–8 şaquli rəf
+cərgəsi, aralarında 2 xana enində keçid; cərgələrin hər iki ucunda üfüqi keçid.
 
-**Məqsəd:** Müştəri “Diş pastası haradadır?” soruşur → cavab + xəritədə zona.
+Fayldakı `ZONES` lüğəti zona kodunu ada və rəngə bağlayır:
+`{"A": {"name": "Meyvə-Tərəvəz", "color": "..."}, ...}` — mövcud zonalarla uyğun.
 
-**Addımlar:**
-1. **`services/assistant.py`:**
-   - Anthropic Python SDK ilə Messages API + **tool use**. Model `AI_MODEL` env-dən. SDK sintaksisini Anthropic-in hazırkı rəsmi sənədindən yoxla (docs.claude.com).
-   - **Alətlər:**
-     - `search_products(query)` → `rapidfuzz` ilə ad + kateqoriya + keywords üzrə ən uyğun 5 məhsul (ad, zona, rəf, yer, qiymət, stok).
-     - `get_zone_info(zone_code)` → zona adı və orada olan kateqoriyalar.
-   - **Sistem promptu (ingiliscə yaz, cavab dili AZ):** “Sən {STORE_NAME} mağazasının köməkçisisən. İstifadəçinin dilində cavab ver (default Azərbaycan dili). 1–2 qısa cümlə. Həmişə zona adı + rəf + rəf səviyyəsini de. Yalnız alət nəticələrindəki məhsullardan danış, heç vaxt məhsul uydurma. Tapılmazsa, bunu açıq de və oxşar məhsul təklif et. Stok 0-dırsa bildir.”
-   - Söhbət tarixçəsi: sessiya üzrə son 6 mesaj (yaddaşda dict kifayətdir).
-   - **Cavab formatı (frontend-ə):** `{answer, products: [...], highlight_zone, mode: "ai" | "offline"}` — `highlight_zone` alət nəticəsindəki ilk məhsulun zonası.
-2. **Oflayn rejim (mütləq!):** API açarı yoxdursa və ya xəta/timeout (8 san) olarsa → `rapidfuzz` axtarışı + şablon cavab: “🥛 Süd 2.5% — Süd məhsulları zonası, Rəf 4, orta rəf. Qiymət: 1.89 ₼”. Demo heç vaxt dayanmamalıdır.
-3. Hər sorğunu `ai_queries` və `events` (`ai_query`) cədvəlinə yaz, `found` sahəsi ilə — “axtarılıb tapılmayan məhsullar” analitikası üçün.
-4. **Frontend `AssistantChat`:**
-   - Səbət ekranında üzən “🤖 Köməkçi” düyməsi → aşağıdan açılan panel.
-   - Hazır sual çipləri: “Süd haradadır?”, “Diş pastası”, “Uşaq üçün şirniyyat”, “Ən ucuz çay hansıdır?”.
-   - Cavab + məhsul kartları + mini `StoreMap` (`highlightZone` + `currentZone`).
-   - Rejim nişanı: “AI” və ya “Oflayn”.
-   - **Opsional:** Web Speech API ilə səsli sual (dəstəklənmirsə düymə gizlənsin).
+Bitişik rəf xanaları bir **blok** sayılır və avtomatik nömrələnir
+(`Rəf 1`, `Rəf 2`, … yuxarıdan aşağı, soldan sağa).
 
-**Yoxlama:**
-- [ ] “çörək harda?” → Çörək zonası xəritədə yanıb-sönür
-- [ ] Səhv yazılış: “kofe”, “dis pastasi” → düzgün məhsul tapılır
-- [ ] Rusca sual → rusca cavab (AI rejimində)
-- [ ] `.env`-dən açarı silib yenidən başlat → oflayn rejim işləyir
-- [ ] Mövcud olmayan məhsul (“avokado”) → “tapılmadı” + `found=false` qeydi
+Parser planı bu struktura çevirir:
+`{width, height, cells, walkable, shelves[{id, label, zone_code, cells}], entrance, checkouts}`.
 
-**Commit:** `feat: AI shopping assistant with tool use and offline fallback`
+**Qayda:** hər rəf xanasının ən azı bir qonşu keçid xanası olmalıdır (testlə yoxlanılır).
+
+### 7.2 Məhsul yerləri
+
+- `products` cədvəlinə: `shelf_x`, `shelf_y` (rəf xanası) və `level`
+  (`Yuxarı` | `Orta` | `Aşağı`). `aisle` mətni rəf nömrəsindən avtomatik gəlir.
+- `pick_point` — rəf xanasına bitişik keçid xanası (müştərinin dayanacağı yer),
+  seed zamanı hesablanıb saxlanılır.
+- Seed hər məhsulu öz zonasındakı rəf xanalarından birinə yerləşdirir, bir xanaya
+  2-dən çox məhsul düşmür. **Mövcud məhsullar, barkodlar və qiymətlər dəyişmir.**
+- `baskets` cədvəlinə `pos_x`, `pos_y`. Sessiya başlayanda bu yer girişdir.
+
+### 7.3 Yol tapma — `backend/app/services/navigation.py`
+
+- **A\*** xarici kitabxana olmadan: 4 istiqamət (diaqonal yox), Manhattan evristikası.
+- Yol heç vaxt divardan və ya rəf xanasından keçmir.
+- Yol seqmentlərə bölünür və Azərbaycan dilində addım-addım təlimat yaranır:
+  “Düz 6 m gedin”, “Sağa dönün, 4 m gedin”. Sağ/sol dönüş hərəkət istiqamətinə
+  görə **vektor hasili** ilə hesablanır.
+- Son addımda rəfin müştərinin sağında, yoxsa solunda olduğu deyilir:
+  “Rəf 7, orta rəf — sağ tərəfdə”.
+- Cavabda məsafə (metr) və təxmini vaxt. Yeriş sürəti **1.2 m/san**.
+
+### 7.4 API
+
+| Metod | Yol | Təsvir |
+|---|---|---|
+| GET | `/api/map` | Hazır plan; frontend xəritəni bundan çəkir |
+| GET | `/api/products/search?q=&basket_id=` | Ən uyğun 8 nəticə: məhsul, zona, rəf, səviyyə, qiymət, stok, **səbətdən məsafə** |
+| GET | `/api/navigation/route?basket_id=&product_id=` | `{start, goal, path, distance_m, eta_seconds, steps, shelf}` |
+| POST | `/api/baskets/{id}/position` | `{x, y}` — yalnız keçid xanası, əks halda 400 |
+
+- Axtarış `rapidfuzz` ilə ad, kateqoriya və `keywords` üzrə aparılır.
+  Azərbaycan hərfləri normallaşdırılır (`ə→e, ı→i, ö→o, ü→u, ç→c, ş→s, ğ→g`),
+  böyük/kiçik hərf fərqi nəzərə alınmır, AZ/RU/EN sinonimlər `keywords`-dədir.
+  **Minimum uyğunluq həddi** var ki, mənasız sorğu nəticə qaytarmasın.
+- Hər axtarış `search_queries` cədvəlinə yazılır
+  (`query, found, top_product_id, basket_id, session_id, ts`) və `events`-ə `nav_search`.
+- Marşrut sorğusu `events`-ə `nav_route` yazır.
+- **Skan zamanı** səbətin yeri avtomatik həmin məhsulun `pick_point`-inə keçir
+  (müştəri o rəfin yanında dayanır). Köhnə zona izləmə məntiqi bununla əvəzlənir;
+  zona dəyişəndə `zone_enter` event-i yenə yazılır ki, analitika qorunsun.
+
+### 7.5 Frontend
+
+`StoreMap` yenidən yazılır — SVG, `viewBox` şəbəkədən hesablanır, telefonda
+üfüqi sürüşdürmə olmadan ekrana sığır.
+
+- Keçidlər açıq fonda, rəflər zona rəngində, divarlar tünd; giriş və kassalar ikonla;
+  rəf bloklarının üzərində zona adları və rəf nömrələri kiçik yazı ilə.
+- “Siz buradasınız” — pulsasiya edən mavi nöqtə.
+- Hədəf rəf xanası yanıb-sönür, üzərində 📍 işarəsi.
+- Yol qalın, yuvarlaq künclü xətt; `stroke-dashoffset` ilə “axan” animasiya.
+- Demo üçün: keçid xanasına toxunanda “Mən buradayam” → `POST position`, yol yenidən hesablanır.
+- Admin paneldəki istilik xəritəsi və canlı səbət nöqtələri (`pos_x`, `pos_y`) də
+  bu komponentlə işləyir.
+
+Səbət ekranında **“🔍 Məhsul tap”** (əvvəlki “🤖 Köməkçi”nin yerinə):
+
+- Axtarış sahəsi — yazdıqca nəticə (200 ms debounce), altında populyar axtarış çipləri.
+- Nəticə kartı: emoji, ad, qiymət və yer —
+  “Süd məhsulları · Rəf 4 · Orta rəf · 18 m”.
+- Karta toxunanda: tam ekran xəritə və yol; yuxarıda “18 m · ~15 san” kartı;
+  aşağıda addım-addım təlimat siyahısı.
+- Hədəf məhsul skan ediləndə **“✅ Tapdınız!”** toast-u və naviqasiya bağlanır.
+- Səbətin yeri dəyişəndə (skan və ya toxunma) yol avtomatik yenilənir.
+- Məhsul tapılmayanda “Bu məhsul mağazamızda yoxdur” + 3-ə qədər oxşar təklif.
+
+### 7.6 AI-ın çıxarılması
+
+AI köməkçinin router-i, servisi, `AssistantChat` komponenti və ona aid düymələr silinir.
+`ai_queries` cədvəli `search_queries` ilə əvəzlənir, bağlı analitika endpoint-i uyğunlaşdırılır.
+Admin paneldəki “AI tövsiyələr” **qalır** — o, məhsul yeri ilə bağlı deyil.
+
+### Yoxlama
+
+- [ ] Planda hər rəf xanasının qonşu keçid xanası var; giriş və kassalar keçid xanasıdır
+- [ ] Girişdən hər məhsula yol mövcuddur
+- [ ] Yol divardan/rəfdən keçmir, ardıcıl xanalar qonşudur
+- [ ] A\*-ın tapdığı yol BFS ilə tapılan ən qısa yolla eyni uzunluqdadır (təsadüfi nöqtələrlə)
+- [ ] Axtarış: `dis pastasi`→Diş pastası, `kofe`→Qəhvə, `молоко`→Süd, `qwerty`→boş + `found=false`
+- [ ] `/basket/BSK-001` → “Məhsul tap” → “süd” → xəritədə girişdən süd rəfinə yol və təlimatlar
+- [ ] Başqa məhsul skan edəndə “Siz buradasınız” oraya keçir və yol yenilənir
+- [ ] Hədəf məhsul skan edəndə “Tapdınız!” çıxır
+- [ ] Telefonda xəritə ekrana sığır
+- [ ] Mövcud bütün testlər yaşıl qalır
+
+**Commit:** `feat: store map navigation with A* pathfinding, remove AI assistant`
 
 ---
 
@@ -487,7 +563,8 @@ ai_queries
    - Məhsul əlaqələri: çörək + süd, çips + kola, çay + şirniyyat, makaron + pendir (birlikdə alınma ehtimalı yüksək).
    - Bəzi zonalara baxılır, amma alınmır (konversiya fərqi görünsün).
    - Ödəniş vaxtı 4–12 san.
-   - AI sorğuları, o cümlədən tapılmayan məhsullar (avokado, kinoa, laktozasız süd).
+   - Axtarış sorğuları, o cümlədən tapılmayan məhsullar (avokado, kinoa, laktozasız süd).
+   - Səbətlərin hərəkəti yeni şəbəkədə A\* ilə hesablanmış real yollarla.
    - Bütün eventlər real ardıcıllıqla, keçmiş tarixlərlə.
    - `POST /api/dev/simulate` və `POST /api/dev/reset`.
 2. **`services/analytics.py` + endpoint-lər:**
@@ -496,16 +573,16 @@ ai_queries
    - `zones`: ziyarət sayı, orta qalma vaxtı, **konversiya** (zonaya girən sessiyaların neçə %-i oradan alıb).
    - `hourly`: saatlara görə sessiyalar.
    - `co-purchase`: ən çox birlikdə alınan 10 cüt.
-   - `ai-queries`: top sorğular, tapılmayanlar (tələb siqnalı).
+   - `searches`: ən çox axtarılan məhsullar; axtarılıb tapılmayanlar (tələb siqnalı); ən çox yolu soruşulan məhsullar (“müştərilər bunları çətin tapır, yerini dəyişməyi düşünün”).
    - `live`: aktiv səbətlər + cari zonalar.
 3. **Admin səhifəsi (`/admin`):**
    - KPI kartları (sırada): Dövriyyə · Sessiyalar · Orta səbət · Orta ödəniş vaxtı · **Qənaət edilmiş vaxt**.
    - Saatlıq trafik (xətt qrafiki).
    - Top məhsullar (bar qrafiki).
-   - `StoreMap` — **istilik xəritəsi** rejimi (ziyarət sayına görə) + canlı səbət nöqtələri.
+   - `StoreMap` — **istilik xəritəsi** rejimi (ziyarət sayına görə) + canlı səbət nöqtələri (`pos_x`, `pos_y`).
    - Zona cədvəli: ziyarət, orta qalma, konversiya (aşağı konversiyalı zonalar qırmızı).
    - “Birlikdə alınanlar” cədvəli.
-   - “Müştərilər axtarır, amma tapmır” siyahısı.
+   - Üç axtarış bölməsi: “Ən çox axtarılan məhsullar”, “Axtarılıb tapılmayanlar (tələb siqnalı)”, “Ən çox yolu soruşulan məhsullar”.
    - Düymələr: “Demo data yarat (500 sessiya)”, “Bazanı sıfırla”.
    - Avtomatik yenilənmə: 5 san.
 4. **AI hesabat:** “🤖 Tövsiyələr al” düyməsi → analitikanın xülasə JSON-u Claude-a göndərilir → Azərbaycan dilində 3–5 konkret tövsiyə (məs. “Çipsləri kola rəfinin yanına köçürün”). Oflayn rejimdə qaydaya əsaslanan tövsiyələr.
@@ -527,7 +604,7 @@ ai_queries
 3. `npm run reset-demo` — bazanı sıfırla + seed + 500 sessiya simulyasiya.
 4. **README.md:** problem, həll, funksiyalar, quraşdırma, işə salma, telefonla qoşulma (HTTPS), arxitektura, API, gələcək planlar.
 5. **docs/ARCHITECTURE.md** — mermaid diaqramları:
-   - Sistem arxitekturası (Səbət cihazı → API → SQLite; Kassa; Admin; Claude API).
+   - Sistem arxitekturası (Səbət cihazı → API → SQLite; Kassa; Admin; A\* naviqasiya modulu).
    - Alış-veriş axını (ardıcıllıq diaqramı: skan → QR → ödəniş → sıfırlama).
    - Verilənlər modeli (ER diaqramı).
 6. Hər ekranın skrinşotunu `docs/screenshots/`-a çəkmək üçün istifadəçiyə siyahı ver (və ya Playwright quraşdırılıbsa avtomatik çək).
@@ -546,12 +623,12 @@ ai_queries
 | Kod | Funksiya | Dəyər | Vaxt |
 |---|---|---|---|
 | A | **Çəki sensoru ilə yoxlama** (simulyasiya): səbətin ölçülən çəkisi skan edilən məhsulların çəkisi ilə uyğun gəlmirsə → kassada “Yoxlama tələb olunur” | Oğurluq sualına cavab (hakimlər mütləq soruşacaq) | 40 dəq |
-| B | **Alış-veriş siyahısı + optimal marşrut**: müştəri siyahı yazır, xəritədə ən qısa yol çəkilir | Vaxt qənaəti | 50 dəq |
+| B | **Alış-veriş siyahısı + optimal marşrut**: müştəri siyahı yazır, bütün məhsulları əhatə edən ən qısa marşrut çəkilir (Faza 7-nin A\*-ı üzərində) | Vaxt qənaəti | 50 dəq |
 | C | **Zonaya görə fərdi endirim**: səbət zonaya girəndə həmin zonadakı aksiya göstərilir | Mağaza üçün gəlir modeli | 30 dəq |
 | D | **Büdcə limiti**: müştəri limit qoyur, aşanda xəbərdarlıq | Müştəri üçün dəyər, sadə | 15 dəq |
 | E | **Kassasız ödəniş**: səbət ekranından birbaşa ödəniş (QR ilə mobil ödəniş simulyasiyası), çıxışda yalnız təsdiq | Növbəni tamamilə aradan qaldırır | 30 dəq |
 | F | **Qida məlumatı**: skan edəndə allergen / halal / kalori nişanları | Sağlamlıq | 20 dəq |
-| G | **Səsli AI sorğu** (əgər Faza 8-də edilməyibsə) | Yaşlılar üçün əlçatanlıq | 20 dəq |
+| G | **Səsli axtarış** (Web Speech API ilə “süd” deyib axtarmaq) | Yaşlılar üçün əlçatanlıq | 20 dəq |
 | H | **Loyallıq balları**: telefon nömrəsi ilə bal toplama | Geri qayıdan müştəri | 30 dəq |
 | I | **Stok xəbərdarlığı**: stok azalanda admin panelində bildiriş | Əməliyyat dəyəri | 20 dəq |
 
@@ -564,7 +641,7 @@ ai_queries
 | Səhnədə kamera barkodu oxumur | “Demo məhsullar” əl ilə seçim + USB skaner + klaviatura |
 | Telefonda kamera açılmır (HTTPS) | `npm run dev:https` və ya demonu noutbukda `localhost`-da göstər |
 | Wi-Fi yoxdur / zəifdir | Hər şey bir noutbukda `localhost` + `/demo` səhifəsi |
-| AI API açarı işləmir | Avtomatik oflayn rejim |
+| İnternet yoxdur | Naviqasiya tamamilə oflayndır (A\*), AI tövsiyələrinin isə qaydaya əsaslanan versiyası var |
 | Baza qarışıb | `npm run reset-demo` |
 | Port məşğuldur | Prosesi dayandır və ya portu `.env`-də dəyiş |
 
@@ -575,7 +652,7 @@ ai_queries
 1. **Problem** (15 san): “Orta müştəri kassada X dəqiqə gözləyir.”
 2. **Səbət götürülür** — `/demo` səhifəsi, `BSK-001`.
 3. **4 məhsul skan edilir**, biri “Çıxart” rejimi ilə geri qaytarılır — yekun canlı yenilənir.
-4. **AI köməkçi:** “Diş pastası haradadır?” → cavab + xəritədə zona yanıb-sönür.
+4. **Məhsul tap:** “diş pastası” yazılır → xəritədə rəf yanıb-sönür, yol çəkilir, addım-addım təlimat görünür.
 5. **Kassa:** səbətin QR kodu oxudulur → yekun dərhal → “Kart” → səbət ekranında “Səbət sıfırlandı”. Nişan: “6 san · ənənəvi ~65 san”.
-6. **Admin paneli:** istilik xəritəsi, “birlikdə alınanlar”, “axtarılıb tapılmayan: avokado”, **“X saat qənaət edildi”**, AI tövsiyələri.
+6. **Admin paneli:** istilik xəritəsi, “birlikdə alınanlar”, “axtarılıb tapılmayan: avokado”, “ən çox yolu soruşulan məhsullar”, **“X saat qənaət edildi”**, AI tövsiyələri.
 7. **Bağlanış:** biznes modeli (mağazaya səbət başına abunə + analitika paketi) və növbəti addımlar (real hardware, BLE, çəki sensoru).

@@ -3,8 +3,6 @@ uvicorn[standard]
 sqlmodel
 pydantic-settings
 python-dotenv
-anthropic
-openai
 rapidfuzz
 pytest
 httpx

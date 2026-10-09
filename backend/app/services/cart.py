@@ -15,16 +15,17 @@ from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from app.models import (
-    AiQuery,
     Basket,
     BasketItem,
     Event,
     Payment,
     Product,
+    SearchQuery,
     ShoppingSession,
     Zone,
     utcnow,
 )
+from app.store_layout import STORE_PLAN
 
 QR_PREFIX = "SMARTBASKET:"
 
@@ -108,6 +109,7 @@ def get_or_start_session(db: Session, basket: Basket) -> ShoppingSession:
 
     basket.current_session_id = shopping.id
     basket.status = "active"
+    basket.pos_x, basket.pos_y = STORE_PLAN.entrance
     basket.last_seen_at = utcnow()
     db.add(basket)
     log_event(
@@ -120,7 +122,7 @@ def get_or_start_session(db: Session, basket: Basket) -> ShoppingSession:
 def enter_zone(
     db: Session, basket: Basket, session_id: int | None, zone_id: int | None
 ) -> None:
-    """Record a zone change. Called on scan (inferred) and from the map."""
+    """Record a zone change. Analytics is built on these events."""
     if zone_id is None or basket.current_zone_id == zone_id:
         return
     basket.current_zone_id = zone_id
@@ -132,6 +134,35 @@ def enter_zone(
         session_id=session_id,
         zone_id=zone_id,
     )
+
+
+def move_basket(
+    db: Session, basket: Basket, x: int, y: int, session_id: int | None
+) -> None:
+    """Put the basket on a grid cell, logging the zone change if there is one.
+
+    Position is the primary truth now; the zone is derived from whichever
+    shelf the shopper is standing next to.
+    """
+    if not STORE_PLAN.is_walkable(x, y):
+        raise HTTPException(
+            status_code=400, detail="Bura keçid xanası deyil, səbət ora qoyula bilməz"
+        )
+
+    basket.pos_x, basket.pos_y = x, y
+    db.add(basket)
+
+    # Which zone is the shopper in? The nearest touching shelf decides.
+    zone_code = None
+    for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+        code = STORE_PLAN.zone_of(nx, ny)
+        if code:
+            zone_code = code
+            break
+    if zone_code:
+        zone = db.exec(select(Zone).where(Zone.code == zone_code)).first()
+        if zone is not None:
+            enter_zone(db, basket, session_id, zone.id)
 
 
 # --- Cart -----------------------------------------------------------------
@@ -186,10 +217,17 @@ def get_cart(db: Session, basket_id: str) -> dict:
         if zone is not None:
             current_zone = {"id": zone.id, "code": zone.code, "name": zone.name}
 
+    position = (
+        {"x": basket.pos_x, "y": basket.pos_y}
+        if basket.pos_x is not None
+        else {"x": STORE_PLAN.entrance[0], "y": STORE_PLAN.entrance[1]}
+    )
+
     return {
         "basket_id": basket.id,
         "session_id": basket.current_session_id,
         "status": basket.status,
+        "position": position,
         "items": items_out,
         "item_count": item_count,
         "total_qepik": total_qepik,
@@ -243,8 +281,12 @@ def scan(db: Session, basket_id: str, barcode: str, mode: str = "add") -> dict:
             db.add(item)
         event_type = "scan_remove"
 
-    # Scanning a product implies the shopper is standing in its zone.
-    enter_zone(db, basket, shopping.id, product.zone_id)
+    # Scanning a product means the shopper is standing at that shelf. The
+    # position is the truth; the zone falls out of it.
+    if product.pick_x is not None and product.pick_y is not None:
+        move_basket(db, basket, product.pick_x, product.pick_y, shopping.id)
+    else:
+        enter_zone(db, basket, shopping.id, product.zone_id)
 
     basket.last_seen_at = utcnow()
     db.add(basket)
@@ -303,16 +345,10 @@ def delete_item(db: Session, basket_id: str, item_id: int) -> dict:
     return set_item_qty(db, basket_id, item_id, 0)
 
 
-def set_zone(db: Session, basket_id: str, zone_code: str) -> dict:
-    """Manual zone change -- stands in for BLE beacons in the demo."""
+def set_position(db: Session, basket_id: str, x: int, y: int) -> dict:
+    """Manual "I am here" from the map — stands in for BLE beacons."""
     basket = require_basket(db, basket_id)
-    zone = db.exec(
-        select(Zone).where(Zone.code == (zone_code or "").strip().upper())
-    ).first()
-    if zone is None:
-        raise HTTPException(status_code=404, detail="Belə zona yoxdur")
-
-    enter_zone(db, basket, basket.current_session_id, zone.id)
+    move_basket(db, basket, x, y, basket.current_session_id)
     basket.last_seen_at = utcnow()
     db.add(basket)
     db.commit()
@@ -413,6 +449,7 @@ def pay(db: Session, session_id: int, method: str, store_name: str) -> dict:
     basket.status = "idle"
     basket.current_session_id = None
     basket.current_zone_id = None
+    basket.pos_x, basket.pos_y = STORE_PLAN.entrance
     basket.last_seen_at = now
     db.add(basket)
     db.commit()
@@ -450,35 +487,31 @@ def cancel(db: Session, session_id: int) -> dict:
     return get_cart(db, basket.id)
 
 
-def log_ai_query(
+def log_search_query(
     db: Session,
     *,
     basket_id: str | None,
     session_id: int | None,
-    question: str,
-    answer: str,
-    matched_product_id: int | None,
+    query: str,
+    top_product_id: int | None,
     found: bool,
-    mode: str,
 ) -> None:
-    """Record an assistant question; drives the "searched but not found" report."""
+    """Record a product search; drives the "searched but not stocked" report."""
     db.add(
-        AiQuery(
+        SearchQuery(
             basket_id=basket_id,
             session_id=session_id,
-            question=question,
-            answer=answer,
-            matched_product_id=matched_product_id,
+            query=query,
+            top_product_id=top_product_id,
             found=found,
-            mode=mode,
         )
     )
     log_event(
         db,
-        "ai_query",
+        "nav_search",
         basket_id=basket_id,
         session_id=session_id,
-        product_id=matched_product_id,
-        payload={"question": question, "found": found, "mode": mode},
+        product_id=top_product_id,
+        payload={"query": query, "found": found},
     )
     db.commit()

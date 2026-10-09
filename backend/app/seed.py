@@ -12,6 +12,7 @@ from sqlmodel import Session, SQLModel, select
 
 from app.db import create_db_and_tables, engine
 from app.models import Basket, Product, Zone
+from app.store_layout import STORE_PLAN, ZONES as LAYOUT_ZONES, CHECKOUT_ZONE, ENTRANCE_ZONE
 
 BASKET_COUNT = 10
 
@@ -36,34 +37,66 @@ def make_barcode(serial: int) -> str:
     return body + str(ean13_check_digit(body))
 
 
-# --- Zones: placed on a 12x8 grid used by the SVG store map ---------------
+# --- Zones: derived from the store plan, so the map and the database can
+# never disagree about where a zone is ---------------------------------------
 
-ZONES: list[dict] = [
-    {"code": "E", "name": "Giriş", "x": 0, "y": 6, "w": 2, "h": 2,
-     "color": "#94a3b8", "kind": "entrance"},
-    {"code": "A", "name": "Meyvə-Tərəvəz", "x": 0, "y": 0, "w": 3, "h": 2,
-     "color": "#22c55e", "kind": "sales"},
-    {"code": "B", "name": "Çörək və Unlu məmulatlar", "x": 3, "y": 0, "w": 3, "h": 2,
-     "color": "#d97706", "kind": "sales"},
-    {"code": "C", "name": "Süd məhsulları", "x": 6, "y": 0, "w": 3, "h": 2,
-     "color": "#3b82f6", "kind": "sales"},
-    {"code": "D", "name": "Ət və Toyuq", "x": 9, "y": 0, "w": 3, "h": 2,
-     "color": "#ef4444", "kind": "sales"},
-    {"code": "F", "name": "Bakaleya", "x": 0, "y": 2, "w": 3, "h": 2,
-     "color": "#a16207", "kind": "sales"},
-    {"code": "G", "name": "Çay-Qəhvə", "x": 3, "y": 2, "w": 3, "h": 2,
-     "color": "#78350f", "kind": "sales"},
-    {"code": "H", "name": "İçkilər", "x": 6, "y": 2, "w": 3, "h": 2,
-     "color": "#06b6d4", "kind": "sales"},
-    {"code": "I", "name": "Şirniyyat və Qəlyanaltı", "x": 9, "y": 2, "w": 3, "h": 2,
-     "color": "#ec4899", "kind": "sales"},
-    {"code": "J", "name": "Təmizlik və Gigiyena", "x": 0, "y": 4, "w": 4, "h": 2,
-     "color": "#8b5cf6", "kind": "sales"},
-    {"code": "K", "name": "Uşaq məhsulları", "x": 4, "y": 4, "w": 4, "h": 2,
-     "color": "#f59e0b", "kind": "sales"},
-    {"code": "Z", "name": "Kassa", "x": 9, "y": 6, "w": 3, "h": 2,
-     "color": "#16a34a", "kind": "checkout"},
-]
+
+def zone_rows() -> list[dict]:
+    """One row per zone, with the bounding box of its shelves on the grid."""
+    rows: list[dict] = []
+    for code, meta in LAYOUT_ZONES.items():
+        cells = [
+            cell
+            for shelf in STORE_PLAN.shelves
+            if shelf.zone_code == code
+            for cell in shelf.cells
+        ]
+        xs = [x for x, _ in cells]
+        ys = [y for _, y in cells]
+        rows.append(
+            {
+                "code": code,
+                "name": meta["name"],
+                "x": min(xs),
+                "y": min(ys),
+                "w": max(xs) - min(xs) + 1,
+                "h": max(ys) - min(ys) + 1,
+                "color": meta["color"],
+                "kind": "sales",
+            }
+        )
+
+    entrance_x, entrance_y = STORE_PLAN.entrance
+    rows.append(
+        {
+            "code": ENTRANCE_ZONE["code"],
+            "name": ENTRANCE_ZONE["name"],
+            "x": entrance_x,
+            "y": entrance_y,
+            "w": 1,
+            "h": 1,
+            "color": ENTRANCE_ZONE["color"],
+            "kind": "entrance",
+        }
+    )
+    checkout_xs = [x for x, _ in STORE_PLAN.checkouts]
+    checkout_ys = [y for _, y in STORE_PLAN.checkouts]
+    rows.append(
+        {
+            "code": CHECKOUT_ZONE["code"],
+            "name": CHECKOUT_ZONE["name"],
+            "x": min(checkout_xs),
+            "y": min(checkout_ys),
+            "w": max(checkout_xs) - min(checkout_xs) + 1,
+            "h": max(checkout_ys) - min(checkout_ys) + 1,
+            "color": CHECKOUT_ZONE["color"],
+            "kind": "checkout",
+        }
+    )
+    return rows
+
+
+ZONES: list[dict] = zone_rows()
 
 
 # --- Products -------------------------------------------------------------
@@ -253,6 +286,66 @@ PRODUCTS: list[dict] = [
 ]
 
 
+MAX_PRODUCTS_PER_CELL = 2
+#: Shelf levels, cycled so a block holds a realistic mix.
+LEVELS = ("Yuxarı", "Orta", "Aşağı")
+
+
+def place_products() -> list[dict]:
+    """Give every product a real cell on the store grid.
+
+    Products are laid out zone by zone, filling each shelf block in reading
+    order and never putting more than two on one cell. The pick point - the
+    aisle cell a shopper stands on - is stored too, so routing never has to
+    work it out again.
+    """
+    by_zone: dict[str, list[int]] = {}
+    for index, data in enumerate(PRODUCTS):
+        by_zone.setdefault(data["zone"], []).append(index)
+
+    placements: list[dict | None] = [None] * len(PRODUCTS)
+
+    for zone_code, product_indexes in by_zone.items():
+        cells: list[tuple[int, int, object]] = [
+            (x, y, shelf)
+            for shelf in STORE_PLAN.shelves
+            if shelf.zone_code == zone_code
+            for (x, y) in shelf.cells
+        ]
+        if not cells:
+            raise ValueError(f"Zone {zone_code} has no shelf cells in the layout")
+
+        capacity = len(cells) * MAX_PRODUCTS_PER_CELL
+        if len(product_indexes) > capacity:
+            raise ValueError(
+                f"Zone {zone_code}: {len(product_indexes)} products do not fit "
+                f"in {len(cells)} cells"
+            )
+
+        # Spread along the block first, then start a second product per cell.
+        for slot, product_index in enumerate(product_indexes):
+            x, y, shelf = cells[slot % len(cells)]
+            pick_points = STORE_PLAN.pick_points(x, y)
+            if not pick_points:
+                raise ValueError(f"Shelf cell {(x, y)} is unreachable")
+            pick_x, pick_y = pick_points[0]
+            placements[product_index] = {
+                "shelf_x": x,
+                "shelf_y": y,
+                "pick_x": pick_x,
+                "pick_y": pick_y,
+                "shelf_id": shelf.id,
+                "aisle": shelf.label,
+                "level": LEVELS[slot % len(LEVELS)],
+                "shelf": LEVELS[slot % len(LEVELS)],
+            }
+
+    missing = [i for i, placement in enumerate(placements) if placement is None]
+    if missing:
+        raise ValueError(f"Products without a shelf cell: {missing}")
+    return placements  # type: ignore[return-value]
+
+
 def seed(session: Session) -> dict:
     """Insert or update all demo data. Safe to run repeatedly."""
     zones: dict[str, Zone] = {}
@@ -267,6 +360,8 @@ def seed(session: Session) -> dict:
         zones[data["code"]] = zone
     session.commit()
 
+    placements = place_products()
+
     # The barcode is derived from the list position, so re-seeding keeps the
     # same barcode for the same product (already printed codes stay valid).
     for index, data in enumerate(PRODUCTS, start=1):
@@ -274,6 +369,7 @@ def seed(session: Session) -> dict:
         fields = {key: value for key, value in data.items() if key != "zone"}
         fields["barcode"] = barcode
         fields["zone_id"] = zones[data["zone"]].id
+        fields.update(placements[index - 1])
 
         product = session.exec(
             select(Product).where(Product.barcode == barcode)
@@ -285,11 +381,20 @@ def seed(session: Session) -> dict:
                 setattr(product, key, value)
     session.commit()
 
-    # Physical baskets, all idle and ready for a new session.
+    # Physical baskets start idle, parked at the entrance.
+    entrance_x, entrance_y = STORE_PLAN.entrance
     for number in range(1, BASKET_COUNT + 1):
         basket_id = f"BSK-{number:03d}"
-        if session.get(Basket, basket_id) is None:
-            session.add(Basket(id=basket_id, status="idle"))
+        basket = session.get(Basket, basket_id)
+        if basket is None:
+            session.add(
+                Basket(
+                    id=basket_id, status="idle", pos_x=entrance_x, pos_y=entrance_y
+                )
+            )
+        elif basket.pos_x is None:
+            basket.pos_x, basket.pos_y = entrance_x, entrance_y
+            session.add(basket)
     session.commit()
 
     return {

@@ -47,8 +47,17 @@ class Product(SQLModel, table=True):
     category: str
     price_qepik: int
     zone_id: int | None = Field(default=None, foreign_key="zones.id", index=True)
-    aisle: str = ""  # "Rəf 3"
-    shelf: str = ""  # "Yuxarı" | "Orta" | "Aşağı"
+    aisle: str = ""  # "Rəf 3" - derived from the shelf block, not typed in
+    shelf: str = ""  # kept as a human label; `level` is the canonical value
+    # Exact position on the store grid (see app/store_layout.py). This is why
+    # the app never has to guess where anything is.
+    shelf_x: int | None = None
+    shelf_y: int | None = None
+    level: str = "Orta"  # "Yuxarı" | "Orta" | "Aşağı"
+    # The aisle cell a shopper stands on to reach this product.
+    pick_x: int | None = None
+    pick_y: int | None = None
+    shelf_id: int | None = None
     stock: int = 0
     emoji: str = ""
     keywords: str = ""  # AZ/RU/EN synonyms and common misspellings
@@ -66,6 +75,9 @@ class Basket(SQLModel, table=True):
     # circular dependency and SQLite cannot ALTER a table to break it.
     current_session_id: int | None = Field(default=None, index=True)
     current_zone_id: int | None = Field(default=None, foreign_key="zones.id")
+    # Where the basket is on the grid; starts at the entrance each session.
+    pos_x: int | None = None
+    pos_y: int | None = None
     last_seen_at: datetime = Field(default_factory=utcnow)
 
 
@@ -105,7 +117,7 @@ class Event(SQLModel, table=True):
     session_id: int | None = Field(default=None, foreign_key="sessions.id", index=True)
     basket_id: str | None = Field(default=None, index=True)
     # "session_start" | "scan_add" | "scan_remove" | "zone_enter"
-    # | "ai_query" | "checkout_start" | "payment"
+    # | "nav_search" | "nav_route" | "checkout_start" | "payment"
     type: str = Field(index=True)
     zone_id: int | None = Field(default=None, foreign_key="zones.id", index=True)
     product_id: int | None = Field(default=None, foreign_key="products.id", index=True)
@@ -124,15 +136,16 @@ class Payment(SQLModel, table=True):
     ts: datetime = Field(default_factory=utcnow, index=True)
 
 
-class AiQuery(SQLModel, table=True):
-    __tablename__ = "ai_queries"
+class SearchQuery(SQLModel, table=True):
+    """Every product search. Drives the "customers look for this but we do
+    not stock it" demand signal on the admin dashboard."""
+
+    __tablename__ = "search_queries"
 
     id: int | None = Field(default=None, primary_key=True)
     session_id: int | None = Field(default=None, foreign_key="sessions.id")
     basket_id: str | None = None
-    question: str
-    answer: str = ""
-    matched_product_id: int | None = Field(default=None, foreign_key="products.id")
+    query: str
+    top_product_id: int | None = Field(default=None, foreign_key="products.id")
     found: bool = False
-    mode: str = "offline"  # "ai" | "offline"
     ts: datetime = Field(default_factory=utcnow, index=True)

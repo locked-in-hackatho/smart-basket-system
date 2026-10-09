@@ -45,12 +45,13 @@ class BasketOut(BaseModel):
     current_zone_name: str | None = None
     item_count: int = 0
     total_qepik: int = 0
+    pos_x: int | None = None
+    pos_y: int | None = None
     last_seen_at: datetime
 
 
 class HealthOut(BaseModel):
     status: str
-    ai_mode: str
     store_name: str
 
 
@@ -66,8 +67,9 @@ class QtyIn(BaseModel):
     qty: int
 
 
-class ZoneIn(BaseModel):
-    zone_code: str
+class PositionIn(BaseModel):
+    x: int
+    y: int
 
 
 # --- Checkout -------------------------------------------------------------
@@ -79,11 +81,3 @@ class LookupIn(BaseModel):
 
 class PayIn(BaseModel):
     method: str  # "cash" | "card"
-
-
-# --- Assistant ------------------------------------------------------------
-
-
-class AskIn(BaseModel):
-    basket_id: str
-    message: str

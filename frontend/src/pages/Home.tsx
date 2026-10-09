@@ -22,7 +22,7 @@ const CARDS = [
     to: '/basket/BSK-001',
     icon: ShoppingBasket,
     title: 'Səbət cihazı',
-    text: 'Səbətə bərkidilmiş ekran: məhsulu skan et, yekunu canlı gör, AI köməkçidən soruş.',
+    text: 'Səbətə bərkidilmiş ekran: məhsulu skan et, yekunu canlı gör, məhsulun yerini tap.',
     tone: 'bg-brand-600',
   },
   {
@@ -77,7 +77,7 @@ export default function Home() {
           {health && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600 ring-1 ring-slate-200">
               <Sparkles className="size-3.5" aria-hidden />
-              AI: {health.ai_mode === 'ai' ? 'aktiv' : 'oflayn'}
+              {health.store_name}
             </span>
           )}
         </div>

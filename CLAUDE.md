@@ -18,6 +18,11 @@ See `PLAN.md` for the full execution plan (phases, API list, DB schema).
   permanent id (`BSK-001`). A `session` is one shopping trip (from picking up
   the basket to payment). Analytics are built on sessions. After payment the
   basket becomes `idle` and is ready for a new session — that is the "reset".
+- **Product location and routing are never decided by AI.** A product's
+  position is stored in the database (`shelf_x`, `shelf_y`, `level`) and the
+  route to it is computed with the A* algorithm over the store grid in
+  `backend/app/store_layout.py`. No model is asked where something is, ever.
+  Search only ranks catalogue rows (rapidfuzz); it never invents a location.
 - **No authentication** (hackathon). Admin has an optional PIN only.
 - **Ports:** backend `8000`, frontend `5173`. The frontend proxies `/api`
   requests to the backend through Vite, so there are no CORS issues and a
@@ -25,12 +30,16 @@ See `PLAN.md` for the full execution plan (phases, API list, DB schema).
 - **File size:** keep files small and readable — no file much over ~300 lines.
 - **Error messages** returned by the API are in Azerbaijani, e.g.
   `{"detail": "Bu barkodla məhsul tapılmadı"}`.
-- **The demo must never break:** every AI feature has an offline fallback,
-  every scanner has a manual fallback.
+- **The demo must never break:** navigation and search run entirely offline,
+  and every scanner has a manual fallback.
 
 ## Layout
 
 - `backend/` — Python 3.12 · FastAPI · SQLModel · SQLite (`.venv` inside)
+  - `app/store_layout.py` — the store as an ASCII grid; the single source of
+    truth for the floor plan. Edit this file to re-draw the store.
+  - `app/services/navigation.py` — A* pathfinding and the step-by-step
+    directions, written in Azerbaijani.
 - `frontend/` — React · Vite · TypeScript · Tailwind CSS
 - `docs/` — architecture notes and screenshots
 

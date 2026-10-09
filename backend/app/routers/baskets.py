@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import BasketItem, Basket, Product, Zone
-from app.schemas import BasketOut, QtyIn, ScanIn, ZoneIn
+from app.schemas import BasketOut, PositionIn, QtyIn, ScanIn
 from app.services import cart
 
 router = APIRouter(tags=["baskets"])
@@ -82,9 +82,9 @@ def remove_item(
     return cart.delete_item(session, basket_id, item_id)
 
 
-@router.post("/api/baskets/{basket_id}/zone")
-def set_zone(
-    basket_id: str, body: ZoneIn, session: Session = Depends(get_session)
+@router.post("/api/baskets/{basket_id}/position")
+def set_position(
+    basket_id: str, body: PositionIn, session: Session = Depends(get_session)
 ) -> dict:
     """Simulated positioning: in production this comes from BLE beacons."""
-    return cart.set_zone(session, basket_id, body.zone_code)
+    return cart.set_position(session, basket_id, body.x, body.y)

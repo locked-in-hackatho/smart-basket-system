@@ -52,18 +52,25 @@ def test_seed_products_are_well_formed() -> None:
         assert product["aisle"] and product["shelf"]
 
 
-def test_zones_do_not_overlap_on_the_grid() -> None:
+def test_zones_come_from_the_store_plan() -> None:
+    """Zone rows are derived from the layout, so the two cannot disagree."""
     from app.seed import ZONES
+    from app.store_layout import STORE_PLAN, ZONES as LAYOUT_ZONES
 
-    occupied: set[tuple[int, int]] = set()
-    for zone in ZONES:
-        for x in range(zone["x"], zone["x"] + zone["w"]):
-            for y in range(zone["y"], zone["y"] + zone["h"]):
-                assert 0 <= x < 12 and 0 <= y < 8, f"{zone['code']} leaves the grid"
-                assert (x, y) not in occupied, f"{zone['code']} overlaps another zone"
-                occupied.add((x, y))
+    rows = {zone["code"]: zone for zone in ZONES}
+    assert set(LAYOUT_ZONES) <= set(rows)
 
-    codes = [zone["code"] for zone in ZONES]
-    assert len(set(codes)) == len(codes)
+    for code, meta in LAYOUT_ZONES.items():
+        cells = [
+            cell
+            for shelf in STORE_PLAN.shelves
+            if shelf.zone_code == code
+            for cell in shelf.cells
+        ]
+        assert cells, f"zone {code} has no shelves on the plan"
+        assert rows[code]["name"] == meta["name"]
+        assert rows[code]["x"] == min(x for x, _ in cells)
+        assert rows[code]["y"] == min(y for _, y in cells)
+
     kinds = {zone["kind"] for zone in ZONES}
     assert {"entrance", "checkout", "sales"} <= kinds

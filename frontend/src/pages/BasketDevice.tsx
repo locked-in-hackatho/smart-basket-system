@@ -7,19 +7,19 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Bot, Loader2, Map, Minus, Plus, QrCode, ScanLine, ShoppingBasket } from 'lucide-react'
+import { Loader2, Map, Minus, Plus, QrCode, ScanLine, Search, ShoppingBasket } from 'lucide-react'
 
 import { api, ApiError } from '../api'
-import AssistantChat from '../components/AssistantChat'
 import BarcodeScanner from '../components/BarcodeScanner'
 import CartList from '../components/CartList'
 import QrModal from '../components/QrModal'
+import ProductFinder from '../components/ProductFinder'
 import StoreMap from '../components/StoreMap'
 import { useToast } from '../components/Toast'
 import { Card, EmptyState, ErrorNote, Page, Spinner, StatusChip } from '../components/ui'
 import { beepError, beepPaid, beepRemove, beepSuccess } from '../utils/feedback'
 import { formatAZN } from '../utils/format'
-import type { Cart, ScanMode } from '../types'
+import type { Cart, FoundProduct, ScanMode, StoreMapData } from '../types'
 
 const POLL_MS = 2000
 const THANK_YOU_MS = 4000
@@ -35,7 +35,9 @@ export default function BasketDevice() {
   const [showQr, setShowQr] = useState(false)
   const [paidTotal, setPaidTotal] = useState<number | null>(null)
   const [tab, setTab] = useState<'shop' | 'map'>('shop')
-  const [showAssistant, setShowAssistant] = useState(false)
+  const [showFinder, setShowFinder] = useState(false)
+  const [target, setTarget] = useState<FoundProduct | null>(null)
+  const [map, setMap] = useState<StoreMapData | null>(null)
 
   // Remembered across polls so a payment elsewhere can be detected here.
   const sessionRef = useRef<number | null>(null)
@@ -81,7 +83,8 @@ export default function BasketDevice() {
     setPaidTotal(null)
     setMode('add')
     setTab('shop')
-    setShowAssistant(false)
+    setShowFinder(false)
+    setTarget(null)
     load()
   }, [basketId, load])
 
@@ -89,6 +92,13 @@ export default function BasketDevice() {
     const timer = window.setInterval(load, POLL_MS)
     return () => window.clearInterval(timer)
   }, [load])
+
+  useEffect(() => {
+    api
+      .map()
+      .then(setMap)
+      .catch(() => setMap(null))
+  }, [])
 
   async function runCartAction(action: () => Promise<Cart>, onOk: (next: Cart) => void) {
     setBusy(true)
@@ -111,6 +121,13 @@ export default function BasketDevice() {
       (next) => {
         const product = next.scanned_product
         if (!product) return
+
+        if (target && product.id === target.id) {
+          toast.success('✅ Tapdınız!', `${target.name} səbətə əlavə olundu`)
+          setTarget(null)
+          setShowFinder(false)
+        }
+
         if (mode === 'add') {
           beepSuccess()
           toast.success(
@@ -133,10 +150,14 @@ export default function BasketDevice() {
       () => (qty <= 0 ? beepRemove() : beepSuccess()),
     )
 
-  const changeZone = (zoneCode: string, zoneName: string) =>
+  const moveTo = (x: number, y: number) =>
     runCartAction(
-      () => api.setZone(basketId, zoneCode),
-      () => toast.info(`Zona: ${zoneName}`),
+      () => api.setPosition(basketId, x, y),
+      (next) =>
+        toast.info(
+          'Mövqe yeniləndi',
+          next.current_zone ? next.current_zone.name : `(${x}, ${y})`,
+        ),
     )
 
   const removeItem = (itemId: number) =>
@@ -310,8 +331,9 @@ export default function BasketDevice() {
       ) : (
         <div className="mt-3">
           <StoreMap
-            currentZone={cart.current_zone?.code ?? null}
-            onZoneClick={(zone) => changeZone(zone.code, zone.name)}
+            map={map}
+            position={cart.position}
+            onCellClick={moveTo}
           />
           <p className="mt-2 text-center text-sm text-slate-500">
             {cart.current_zone
@@ -319,29 +341,32 @@ export default function BasketDevice() {
               : 'Zona hələ müəyyən edilməyib'}
           </p>
           <p className="mt-1 text-center text-xs text-slate-400">
-            Zonaya toxunaraq yeri dəyişə bilərsiniz. Real versiyada bu, BLE mayakları
-            ilə avtomatik baş verir.
+            Keçid xanasına toxunaraq yerinizi dəyişə bilərsiniz. Real versiyada bu,
+            BLE mayakları ilə avtomatik baş verir.
           </p>
         </div>
       )}
 
-      {/* Floating assistant button: reachable from anywhere on the screen. */}
+      {/* Floating finder button: reachable from anywhere on the screen. */}
       <button
         type="button"
-        onClick={() => setShowAssistant(true)}
+        onClick={() => setShowFinder(true)}
         className="fixed bottom-5 right-4 z-40 flex min-h-14 items-center gap-2 rounded-full bg-slate-900 px-5 font-bold text-white shadow-xl transition hover:bg-slate-700"
       >
-        <Bot className="size-5" aria-hidden />
-        Köməkçi
+        <Search className="size-5" aria-hidden />
+        Məhsul tap
       </button>
 
       {showQr && <QrModal basketId={cart.basket_id} onClose={() => setShowQr(false)} />}
 
-      {showAssistant && (
-        <AssistantChat
+      {showFinder && (
+        <ProductFinder
           basketId={cart.basket_id}
-          currentZone={cart.current_zone?.code ?? null}
-          onClose={() => setShowAssistant(false)}
+          position={cart.position}
+          map={map}
+          onTargetChange={setTarget}
+          onMove={moveTo}
+          onClose={() => setShowFinder(false)}
         />
       )}
     </Page>

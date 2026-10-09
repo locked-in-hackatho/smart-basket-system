@@ -77,6 +77,17 @@ body {
   animation: ping-slow 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
+/* The route line flows towards the goal, so the direction is obvious. */
+@keyframes route-flow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+.animate-route-flow {
+  animation: route-flow 0.9s linear infinite;
+}
+
 /* Touch targets on the basket screen must stay finger-sized. */
 @media (pointer: coarse) {
   button,

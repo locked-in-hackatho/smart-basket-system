@@ -7,14 +7,16 @@
  */
 
 import type {
-  AssistantReply,
   BasketSummary,
   Cart,
   Health,
   PaymentMethod,
   Product,
   Receipt,
+  RouteResponse,
   ScanMode,
+  SearchResponse,
+  StoreMapData,
   Zone,
 } from './types'
 
@@ -79,8 +81,8 @@ export const api = {
     }),
   removeItem: (basketId: string, itemId: number) =>
     request<Cart>(`/baskets/${basketId}/items/${itemId}`, { method: 'DELETE' }),
-  setZone: (basketId: string, zoneCode: string) =>
-    post<Cart>(`/baskets/${basketId}/zone`, { zone_code: zoneCode }),
+  setPosition: (basketId: string, x: number, y: number) =>
+    post<Cart>(`/baskets/${basketId}/position`, { x, y }),
 
   // --- Checkout ---
   lookup: (qrPayload: string) => post<Cart>('/checkout/lookup', { qr_payload: qrPayload }),
@@ -88,7 +90,15 @@ export const api = {
     post<Receipt>(`/checkout/${sessionId}/pay`, { method }),
   cancelCheckout: (sessionId: number) => post<Cart>(`/checkout/${sessionId}/cancel`),
 
-  // --- Assistant ---
-  ask: (basketId: string, message: string) =>
-    post<AssistantReply>('/assistant/ask', { basket_id: basketId, message }),
+  // --- Map, search and navigation ---
+  map: () => request<StoreMapData>('/map'),
+  search: (query: string, basketId?: string) =>
+    request<SearchResponse>(
+      `/products/search?q=${encodeURIComponent(query)}` +
+        (basketId ? `&basket_id=${encodeURIComponent(basketId)}` : ''),
+    ),
+  route: (basketId: string, productId: number) =>
+    request<RouteResponse>(
+      `/navigation/route?basket_id=${encodeURIComponent(basketId)}&product_id=${productId}`,
+    ),
 }

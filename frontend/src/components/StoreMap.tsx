@@ -1,253 +1,306 @@
 /**
- * The store floor as an SVG, built from the zones' grid coordinates.
+ * The store floor, drawn from the grid the backend serves at `/api/map`.
  *
- * One component serves three screens: the basket (where am I, where is the
- * thing I asked about), the assistant (highlight a zone) and the admin
- * dashboard (heat map plus live basket dots).
+ * One component serves three screens: the product finder (route to a shelf),
+ * the basket's map tab ("where am I"), and the admin dashboard (heat map plus
+ * live basket dots). The viewBox is computed from the grid, so the map always
+ * scales to its container and never scrolls sideways on a phone.
  */
 
 import { useEffect, useState } from 'react'
 
 import { api } from '../api'
-import type { Zone } from '../types'
+import type { StoreMapData } from '../types'
 
-/** Grid cell size in SVG units. The grid itself is 12 x 8. */
-const CELL = 100
-const GRID_W = 12
-const GRID_H = 8
+/** SVG units per grid cell. Arbitrary — the viewBox scales it to fit. */
+const CELL = 10
 
 export interface MapDot {
   id: string
-  zoneCode: string
+  x: number
+  y: number
   label?: string
 }
 
 interface Props {
-  /** Pass zones in to avoid refetching; otherwise the map loads them itself. */
-  zones?: Zone[]
-  /** Zone code to flash — "the milk is over there". */
-  highlightZone?: string | null
-  /** Zone code the basket is in — "you are here". */
-  currentZone?: string | null
+  /** Pass the map in to avoid refetching it on every render. */
+  map?: StoreMapData | null
+  /** Path as [[x, y], ...] from the navigation endpoint. */
+  path?: number[][] | null
+  /** The shelf cell being navigated to — flashes with a pin. */
+  target?: { x: number; y: number } | null
+  /** Where this basket is. */
+  position?: { x: number; y: number } | null
   /** Zone code -> 0..1 intensity, for the admin heat map. */
   heat?: Record<string, number>
-  /** Live baskets to draw as dots. */
+  /** Other baskets, for the admin live view. */
   dots?: MapDot[]
-  onZoneClick?: (zone: Zone) => void
+  /** Tapping an aisle cell says "I am here". */
+  onCellClick?: (x: number, y: number) => void
   className?: string
 }
 
-/** SVG text does not wrap, so split the label into lines that fit the zone. */
-function wrap(name: string, zoneWidth: number, fontSize: number): string[] {
-  const maxChars = Math.max(6, Math.floor((zoneWidth * CELL - 16) / (fontSize * 0.5)))
-  const lines: string[] = []
-  let line = ''
-  for (const word of name.split(' ')) {
-    const candidate = line ? `${line} ${word}` : word
-    if (candidate.length > maxChars && line) {
-      lines.push(line)
-      line = word
-    } else {
-      line = candidate
-    }
-  }
-  if (line) lines.push(line)
-  return lines.slice(0, 3)
-}
-
 export default function StoreMap({
-  zones: given,
-  highlightZone = null,
-  currentZone = null,
+  map: given,
+  path = null,
+  target = null,
+  position = null,
   heat,
   dots = [],
-  onZoneClick,
+  onCellClick,
   className = '',
 }: Props) {
-  const [zones, setZones] = useState<Zone[]>(given ?? [])
+  const [map, setMap] = useState<StoreMapData | null>(given ?? null)
 
   useEffect(() => {
     if (given) {
-      setZones(given)
+      setMap(given)
       return
     }
+    if (map) return
     api
-      .zones()
-      .then(setZones)
-      .catch(() => setZones([]))
-  }, [given])
+      .map()
+      .then(setMap)
+      .catch(() => setMap(null))
+  }, [given, map])
 
-  if (zones.length === 0) {
+  if (!map) {
     return (
       <div
-        className={`flex aspect-[3/2] items-center justify-center rounded-2xl bg-slate-100 text-slate-400 ${className}`}
+        className={`flex aspect-[5/3] items-center justify-center rounded-2xl bg-slate-100 text-slate-400 ${className}`}
       >
         Xəritə yüklənir…
       </div>
     )
   }
 
-  const byCode = new Map(zones.map((zone) => [zone.code, zone]))
-  const dotsByZone = new Map<string, MapDot[]>()
-  for (const dot of dots) {
-    if (!byCode.has(dot.zoneCode)) continue
-    dotsByZone.set(dot.zoneCode, [...(dotsByZone.get(dot.zoneCode) ?? []), dot])
-  }
+  const width = map.width * CELL
+  const height = map.height * CELL
+  const centre = (value: number) => value * CELL + CELL / 2
+
+  const pathD =
+    path && path.length > 1
+      ? path
+          .map(
+            ([x, y], index) =>
+              `${index === 0 ? 'M' : 'L'} ${centre(x)} ${centre(y)}`,
+          )
+          .join(' ')
+      : null
 
   return (
     <svg
-      viewBox={`0 0 ${GRID_W * CELL} ${GRID_H * CELL}`}
-      className={`w-full rounded-2xl bg-slate-100 ${className}`}
+      viewBox={`0 0 ${width} ${height}`}
+      className={`block w-full rounded-2xl bg-slate-200 ${className}`}
       role="img"
       aria-label="Mağaza xəritəsi"
     >
-      {zones.map((zone) => {
-        const isCurrent = zone.code === currentZone
-        const isHighlight = zone.code === highlightZone
-        const intensity = heat?.[zone.code]
-        const fontSize = zone.w >= 4 ? 25 : 22
-        const lines = wrap(zone.name, zone.w, fontSize)
-        const centreX = (zone.x + zone.w / 2) * CELL
-        const centreY = (zone.y + zone.h / 2) * CELL
-        const clickable = Boolean(onZoneClick)
-
-        return (
-          <g
-            key={zone.id}
-            data-zone={zone.code}
-            onClick={clickable ? () => onZoneClick?.(zone) : undefined}
-            className={clickable ? 'cursor-pointer' : undefined}
-            role={clickable ? 'button' : undefined}
-            aria-label={clickable ? `${zone.name} zonasına keç` : undefined}
-          >
+      {/* Walls and aisles. Drawn as one rect per cell so tapping works. */}
+      {map.rows.map((row, y) =>
+        [...row].map((symbol, x) => {
+          const isWalkable = map.walkable[y][x]
+          if (!isWalkable && symbol !== '#') return null
+          const clickable = isWalkable && Boolean(onCellClick)
+          return (
             <rect
-              x={zone.x * CELL + 6}
-              y={zone.y * CELL + 6}
-              width={zone.w * CELL - 12}
-              height={zone.h * CELL - 12}
-              rx={14}
-              fill={zone.color}
-              // With a heat map the fill carries the value; otherwise zones
-              // stay muted so the dots and the highlight stand out.
+              key={`c-${x}-${y}`}
+              data-cell={`${x},${y}`}
+              x={x * CELL}
+              y={y * CELL}
+              width={CELL}
+              height={CELL}
+              fill={isWalkable ? '#f8fafc' : '#334155'}
+              onClick={clickable ? () => onCellClick?.(x, y) : undefined}
+              className={clickable ? 'cursor-pointer' : undefined}
+            >
+              {clickable && <title>Mən buradayam ({x}, {y})</title>}
+            </rect>
+          )
+        }),
+      )}
+
+      {/* Shelf blocks, one rounded rectangle per block. */}
+      {map.shelves.map((shelf) => {
+        const intensity = heat?.[shelf.zone_code]
+        const isTargetShelf =
+          target != null &&
+          shelf.cells.some((cell) => cell.x === target.x && cell.y === target.y)
+        return (
+          <g key={shelf.id} data-shelf={shelf.id} data-zone={shelf.zone_code}>
+            <rect
+              x={shelf.x * CELL + 0.6}
+              y={shelf.y * CELL + 0.6}
+              width={shelf.w * CELL - 1.2}
+              height={shelf.h * CELL - 1.2}
+              rx={2.5}
+              fill={shelf.color}
               fillOpacity={
-                intensity === undefined ? 0.18 : 0.12 + 0.78 * Math.min(intensity, 1)
+                intensity === undefined ? 0.75 : 0.18 + 0.8 * Math.min(intensity, 1)
               }
-              stroke={zone.color}
-              strokeWidth={isCurrent ? 6 : 3}
-              strokeOpacity={isCurrent ? 1 : 0.55}
-              className={isHighlight ? 'animate-zone-flash' : undefined}
+              stroke={shelf.color}
+              strokeWidth={0.8}
             />
-
-            {isHighlight && (
-              <rect
-                x={zone.x * CELL + 6}
-                y={zone.y * CELL + 6}
-                width={zone.w * CELL - 12}
-                height={zone.h * CELL - 12}
-                rx={14}
-                fill="none"
-                stroke="#0f172a"
-                strokeWidth={6}
-                strokeDasharray="18 12"
-                className="animate-zone-flash"
-              />
-            )}
-
             <text
-              x={centreX}
-              y={centreY - (lines.length - 1) * (fontSize * 0.6)}
+              x={shelf.x * CELL + (shelf.w * CELL) / 2}
+              y={shelf.y * CELL + (shelf.h * CELL) / 2}
               textAnchor="middle"
-              fontSize={fontSize}
-              fontWeight={600}
+              fontSize={shelf.w >= shelf.h ? 3.2 : 2.8}
+              fontWeight={700}
               fill="#0f172a"
+              fillOpacity={0.75}
+              transform={
+                shelf.h > shelf.w
+                  ? `rotate(-90 ${shelf.x * CELL + (shelf.w * CELL) / 2} ${
+                      shelf.y * CELL + (shelf.h * CELL) / 2
+                    })`
+                  : undefined
+              }
               className="pointer-events-none select-none"
             >
-              {lines.map((line, index) => (
-                <tspan key={line} x={centreX} dy={index === 0 ? 0 : fontSize * 1.15}>
-                  {line}
-                </tspan>
-              ))}
+              {shelf.label}
+              <tspan fontWeight={500} fillOpacity={0.75}>
+                {' · '}
+                {shelf.zone_name}
+              </tspan>
             </text>
-
-            {zone.kind !== 'sales' && (
-              <text
-                x={centreX}
-                y={(zone.y + zone.h) * CELL - 22}
-                textAnchor="middle"
-                fontSize={30}
-                className="pointer-events-none select-none"
-              >
-                {zone.kind === 'entrance' ? '🚪' : '💳'}
-              </text>
-            )}
-
             {intensity !== undefined && (
               <text
-                x={zone.x * CELL + 18}
-                y={zone.y * CELL + 34}
-                fontSize={18}
+                x={shelf.x * CELL + 1.5}
+                y={shelf.y * CELL + 4}
+                fontSize={3}
                 fontWeight={700}
                 fill="#0f172a"
-                fillOpacity={0.55}
                 className="pointer-events-none select-none"
               >
                 {Math.round(intensity * 100)}%
               </text>
             )}
-
-            {/* Live baskets, fanned out so several in one zone stay readable. */}
-            {(dotsByZone.get(zone.code) ?? []).map((dot, index, all) => {
-              const spread = (index - (all.length - 1) / 2) * 42
-              return (
-                <g key={dot.id}>
-                  <circle
-                    cx={centreX + spread}
-                    cy={centreY + fontSize * 1.6}
-                    r={14}
-                    fill="#0f172a"
-                    stroke="#fff"
-                    strokeWidth={3}
-                  />
-                  {dot.label && (
-                    <text
-                      x={centreX + spread}
-                      y={centreY + fontSize * 1.6 + 32}
-                      textAnchor="middle"
-                      fontSize={15}
-                      fill="#0f172a"
-                      className="pointer-events-none select-none"
-                    >
-                      {dot.label}
-                    </text>
-                  )}
-                </g>
-              )
-            })}
-
-            {/* "You are here". */}
-            {isCurrent && (
-              <g className="pointer-events-none">
-                <circle
-                  cx={centreX}
-                  cy={centreY + fontSize * 1.7}
-                  r={26}
-                  fill={zone.color}
-                  fillOpacity={0.35}
-                  className="animate-ping-slow"
-                />
-                <circle
-                  cx={centreX}
-                  cy={centreY + fontSize * 1.7}
-                  r={13}
-                  fill="#16a34a"
-                  stroke="#fff"
-                  strokeWidth={4}
-                />
-              </g>
+            {isTargetShelf && (
+              <rect
+                x={shelf.x * CELL + 0.6}
+                y={shelf.y * CELL + 0.6}
+                width={shelf.w * CELL - 1.2}
+                height={shelf.h * CELL - 1.2}
+                rx={2.5}
+                fill="none"
+                stroke="#0f172a"
+                strokeWidth={1.4}
+                strokeDasharray="3 2"
+                className="animate-zone-flash pointer-events-none"
+              />
             )}
           </g>
         )
       })}
+
+      {/* Entrance and tills. */}
+      <text
+        x={centre(map.entrance.x)}
+        y={centre(map.entrance.y) + 2.5}
+        textAnchor="middle"
+        fontSize={6}
+        className="pointer-events-none select-none"
+      >
+        🚪
+      </text>
+      {map.checkouts.map((till) => (
+        <text
+          key={`t-${till.x}-${till.y}`}
+          x={centre(till.x)}
+          y={centre(till.y) + 2.5}
+          textAnchor="middle"
+          fontSize={5.5}
+          className="pointer-events-none select-none"
+        >
+          💳
+        </text>
+      ))}
+
+      {/* The route: a thick rounded line that flows towards the goal. */}
+      {pathD && (
+        <>
+          <path
+            d={pathD}
+            fill="none"
+            stroke="#0f172a"
+            strokeOpacity={0.15}
+            strokeWidth={3.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d={pathD}
+            fill="none"
+            stroke="#2563eb"
+            strokeWidth={2.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray="5 3"
+            className="animate-route-flow"
+          />
+        </>
+      )}
+
+      {/* The target shelf cell. */}
+      {target && (
+        <text
+          x={centre(target.x)}
+          y={centre(target.y) + 2.8}
+          textAnchor="middle"
+          fontSize={7}
+          className="animate-zone-flash pointer-events-none select-none"
+        >
+          📍
+        </text>
+      )}
+
+      {/* Other baskets (admin live view). */}
+      {dots.map((dot) => (
+        <g key={dot.id} className="pointer-events-none">
+          <circle
+            cx={centre(dot.x)}
+            cy={centre(dot.y)}
+            r={2.4}
+            fill="#0f172a"
+            stroke="#fff"
+            strokeWidth={0.8}
+          />
+          {dot.label && (
+            <text
+              x={centre(dot.x)}
+              y={centre(dot.y) - 3.4}
+              textAnchor="middle"
+              fontSize={2.6}
+              fontWeight={600}
+              fill="#0f172a"
+            >
+              {dot.label}
+            </text>
+          )}
+        </g>
+      ))}
+
+      {/* "You are here". */}
+      {position && (
+        <g className="pointer-events-none" data-you-are-here={`${position.x},${position.y}`}>
+          <circle
+            cx={centre(position.x)}
+            cy={centre(position.y)}
+            r={4.5}
+            fill="#3b82f6"
+            fillOpacity={0.35}
+            className="animate-ping-slow"
+          />
+          <circle
+            cx={centre(position.x)}
+            cy={centre(position.y)}
+            r={2.6}
+            fill="#2563eb"
+            stroke="#fff"
+            strokeWidth={1}
+          />
+        </g>
+      )}
     </svg>
   )
 }
