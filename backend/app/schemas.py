@@ -79,3 +79,11 @@ class LookupIn(BaseModel):
 
 class PayIn(BaseModel):
     method: str  # "cash" | "card"
+
+
+# --- Assistant ------------------------------------------------------------
+
+
+class AskIn(BaseModel):
+    basket_id: str
+    message: str

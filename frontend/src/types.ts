@@ -91,3 +91,26 @@ export interface Receipt {
   checkout_seconds: number
   paid_at: string
 }
+
+export interface AssistantProduct {
+  id: number
+  barcode: string
+  name: string
+  category: string
+  price_qepik: number
+  price_azn: string
+  zone_code: string | null
+  zone_name: string | null
+  aisle: string
+  shelf: string
+  stock: number
+  emoji: string
+}
+
+export interface AssistantReply {
+  answer: string
+  products: AssistantProduct[]
+  highlight_zone: string | null
+  mode: AiMode
+  found: boolean
+}

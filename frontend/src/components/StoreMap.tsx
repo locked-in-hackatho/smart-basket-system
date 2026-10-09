@@ -114,6 +114,7 @@ export default function StoreMap({
         return (
           <g
             key={zone.id}
+            data-zone={zone.code}
             onClick={clickable ? () => onZoneClick?.(zone) : undefined}
             className={clickable ? 'cursor-pointer' : undefined}
             role={clickable ? 'button' : undefined}

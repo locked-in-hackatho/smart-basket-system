@@ -7,9 +7,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Loader2, Map, Minus, Plus, QrCode, ScanLine, ShoppingBasket } from 'lucide-react'
+import { Bot, Loader2, Map, Minus, Plus, QrCode, ScanLine, ShoppingBasket } from 'lucide-react'
 
 import { api, ApiError } from '../api'
+import AssistantChat from '../components/AssistantChat'
 import BarcodeScanner from '../components/BarcodeScanner'
 import CartList from '../components/CartList'
 import QrModal from '../components/QrModal'
@@ -34,6 +35,7 @@ export default function BasketDevice() {
   const [showQr, setShowQr] = useState(false)
   const [paidTotal, setPaidTotal] = useState<number | null>(null)
   const [tab, setTab] = useState<'shop' | 'map'>('shop')
+  const [showAssistant, setShowAssistant] = useState(false)
 
   // Remembered across polls so a payment elsewhere can be detected here.
   const sessionRef = useRef<number | null>(null)
@@ -79,6 +81,7 @@ export default function BasketDevice() {
     setPaidTotal(null)
     setMode('add')
     setTab('shop')
+    setShowAssistant(false)
     load()
   }, [basketId, load])
 
@@ -322,7 +325,25 @@ export default function BasketDevice() {
         </div>
       )}
 
+      {/* Floating assistant button: reachable from anywhere on the screen. */}
+      <button
+        type="button"
+        onClick={() => setShowAssistant(true)}
+        className="fixed bottom-5 right-4 z-40 flex min-h-14 items-center gap-2 rounded-full bg-slate-900 px-5 font-bold text-white shadow-xl transition hover:bg-slate-700"
+      >
+        <Bot className="size-5" aria-hidden />
+        Köməkçi
+      </button>
+
       {showQr && <QrModal basketId={cart.basket_id} onClose={() => setShowQr(false)} />}
+
+      {showAssistant && (
+        <AssistantChat
+          basketId={cart.basket_id}
+          currentZone={cart.current_zone?.code ?? null}
+          onClose={() => setShowAssistant(false)}
+        />
+      )}
     </Page>
   )
 }

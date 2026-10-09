@@ -7,6 +7,7 @@
  */
 
 import type {
+  AssistantReply,
   BasketSummary,
   Cart,
   Health,
@@ -86,4 +87,8 @@ export const api = {
   pay: (sessionId: number, method: PaymentMethod) =>
     post<Receipt>(`/checkout/${sessionId}/pay`, { method }),
   cancelCheckout: (sessionId: number) => post<Cart>(`/checkout/${sessionId}/cancel`),
+
+  // --- Assistant ---
+  ask: (basketId: string, message: string) =>
+    post<AssistantReply>('/assistant/ask', { basket_id: basketId, message }),
 }
