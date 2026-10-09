@@ -18,6 +18,12 @@ See `PLAN.md` for the full execution plan (phases, API list, DB schema).
   permanent id (`BSK-001`). A `session` is one shopping trip (from picking up
   the basket to payment). Analytics are built on sessions. After payment the
   basket becomes `idle` and is ready for a new session — that is the "reset".
+- **The basket scans by itself.** A reader inside the basket detects every
+  product as it goes in or comes out; the shopper never adds or removes
+  anything from the screen. The basket screen is a *display*, not an input
+  device - the only things it accepts are "find a product" and the map. With
+  no hardware to hand, `ScannerSimulator` fakes those detections behind a
+  panel plainly marked as a demo control.
 - **Product location and routing are never decided by AI.** A product's
   position is stored in the database (`shelf_x`, `shelf_y`, `level`) and the
   route to it is computed with the A* algorithm over the store grid in

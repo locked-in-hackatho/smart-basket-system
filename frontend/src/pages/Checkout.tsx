@@ -199,7 +199,7 @@ export default function CheckoutPage() {
       <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div>
           <p className="mb-2 font-semibold text-slate-700">Səbətin tərkibi</p>
-          <CartList items={cart.items} onChangeQty={() => {}} onRemove={() => {}} readOnly />
+          <CartList items={cart.items} readOnly />
         </div>
 
         <div className="grid gap-2 lg:content-start">

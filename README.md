@@ -1,8 +1,9 @@
 # 🛒 Smart Basket
 
-**Kassada növbə çəkmədən alış-veriş.** Müştəri məhsulu səbətə qoyarkən özü
-skan edir. Kassada yalnız səbətin QR kodu oxudulur və yekun məbləğ dərhal
-ekrana çıxır. Mağaza isə səbətlərin hərəkətindən canlı analitika alır.
+**Kassada növbə çəkmədən alış-veriş.** Səbətin içindəki skaner qoyulan hər
+məhsulu özü oxuyur — müştəri heç nə etmir, sadəcə ekrandakı canlı yekuna
+baxır. Kassada yalnız səbətin QR kodu oxudulur və məbləğ dərhal çıxır.
+Mağaza isə səbətlərin hərəkətindən canlı analitika alır.
 
 ---
 
@@ -16,23 +17,26 @@ pik saatlarda sıxılır.
 ## Həll
 
 Hər səbətə barkod oxuyucu və kiçik ekran bərkidilir. Müştəri məhsulu səbətə
-qoyanda özü skan edir — yekun məbləğ canlı görünür. Kassada yalnız səbətin
-QR kodu oxudulur, ödəniş bir toxunuşla tamamlanır və səbət avtomatik
-sıfırlanır. **Faktiki ölçmə: ~8 saniyə.**
+qoyan kimi **skaner onu özü oxuyur** — nə düymə, nə toxunuş. Ekranda yalnız
+canlı yekun görünür. Kassada səbətin QR kodu oxudulur, ödəniş bir toxunuşla
+tamamlanır və səbət avtomatik sıfırlanır. **Faktiki ölçmə: ~8 saniyə.**
 
 ### Əlavə dəyər
 
 | Kimə | Nə |
 |---|---|
-| **Müştəri** | Növbə yoxdur · yekun həmişə göz önündə · "Məhsul tap" ilə rəfə qədər yol göstərilir |
+| **Müştəri** | Növbə yoxdur · skan etmək lazım deyil · yekun həmişə göz önündə · "Məhsul tap" ilə rəfə qədər yol göstərilir |
 | **Mağaza** | Səbətlərin hərəkəti, zona konversiyası, birlikdə alınan məhsullar, **axtarılıb tapılmayanlar** (tələb siqnalı) |
 
 ---
 
 ## Funksiyalar
 
-- **Səbət cihazı** (`/basket/:id`) — üç skan üsulu: kamera, USB/Bluetooth
-  skaner və əl ilə seçim. Səs siqnalı, vibrasiya, canlı yekun.
+- **Səbət cihazı** (`/basket/:id`) — səbətin skaneri oxuduğu məhsulları canlı
+  göstərir: siyahı, yekun, səs siqnalı və vibrasiya. Müştəri üçün giriş
+  elementi yoxdur. Hardware olmadığı üçün demo zamanı skaner ayrıca
+  **“Demo: səbətin skaneri”** panelindən simulyasiya olunur (kamera,
+  USB skaner və ya demo məhsul siyahısı).
 - **Məhsul tap** — yazdıqca axtarış (AZ/RU/EN sinonimlər, səhv yazılışlar),
   xəritədə yol və addım-addım təlimat: *"Sağa doğru 18 m gedin"*.
 - **Kassa** (`/checkout`) — QR oxu, nəhəng yekun, nağd/kart, qəbz çapı,
@@ -229,7 +233,8 @@ tapması (BFS ilə müqayisə), axtarış, analitika və simulyator.
 
 1. **Problem** — "Orta müştəri kassada bir neçə dəqiqə gözləyir."
 2. `/demo` səhifəsini açın — səbət və kassa bir ekranda.
-3. **4 məhsul skan edin**, birini "Çıxart" rejimi ilə geri qaytarın.
+3. **“Demo: səbətin skaneri”** panelini açıb 4 məhsul qoyun, birini geri
+   götürün — ekranda yekun canlı dəyişir.
 4. **"Məhsul tap"** → "diş pastası" → xəritədə yol və təlimat.
 5. **Kassa:** QR oxu → yekun dərhal → "Kart" → səbətdə "Təşəkkür edirik 🎉".
    Nişan: *"8 san · ənənəvi kassada ~47 san"*.

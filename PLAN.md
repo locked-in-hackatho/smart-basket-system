@@ -43,21 +43,21 @@ Qaydalar:
 
 **Problem:** Mağazalarda kassa növbələri uzundur, çünki kassir hər məhsulu tək-tək skan edir.
 
-**Həll:** Hər səbətə barkod oxuyucu + kiçik ekran (planşet/telefon) bərkidilir. Müştəri məhsulu səbətə qoyarkən özü skan edir. Hər səbətin bazada unikal ID-si və üzərində QR kodu var. Kassada yalnız səbətin QR kodu oxudulur → yekun məbləğ dərhal ekrana çıxır → ödəniş edilir → səbət sıfırlanır.
+**Həll:** Hər səbətə barkod oxuyucu + kiçik ekran (planşet/telefon) bərkidilir. **Səbətin skaneri qoyulan hər məhsulu özü oxuyur — müştəri skan etmir, heç nə əlavə edib silmir.** Ekran yalnız göstəricidir. Hər səbətin bazada unikal ID-si və üzərində QR kodu var. Kassada yalnız səbətin QR kodu oxudulur → yekun məbləğ dərhal ekrana çıxır → ödəniş edilir → səbət sıfırlanır.
 
 **Əlavə dəyər:**
 - **Analitika:** səbətlərin hansı zonalarda gəzdiyi, harada nə qədər qaldığı, nələri birlikdə aldığı → mağaza üçün qərar dəstəyi.
 - **Məhsul tap (naviqasiya):** müştəri səbətdəki ekranda “süd” yazır → xəritədə dəqiq rəf və oraya gedən yol göstərilir. Yer bazadadır, yol A\* ilə hesablanır — AI yoxdur.
 
 **Sistemdə 4 rol / ekran:**
-1. **Səbət cihazı** (`/basket/:basketId`) — səbətə bərkidilmiş ekran: skan, səbət siyahısı, yekun, “Məhsul tap” və xəritə/naviqasiya.
+1. **Səbət cihazı** (`/basket/:basketId`) — səbətə bərkidilmiş **göstərici** ekran: skanerin oxuduğu siyahı, yekun, “Məhsul tap” və xəritə/naviqasiya. Müştəri üçün giriş elementi yoxdur; hardware olmadığı üçün skaner ayrıca “Demo: səbətin skaneri” panelindən simulyasiya olunur.
 2. **Kassa** (`/checkout`) — kassir səbət QR-ını oxudur, yekunu görür, ödənişi təsdiq edir.
 3. **Admin / Analitika** (`/admin`) — mağaza menecerinin paneli.
 4. **Çap** (`/print`) — səbət QR kodlarını və demo məhsul barkodlarını çap etmək üçün.
 
 **Hardware demo üçün necə simulyasiya olunur:**
-- Real həyatda: səbətə bərkidilmiş planşet + barkod skaner + zona üçün BLE mayakları (beacon).
-- Demoda: telefon/noutbuk kamerası (brauzerdə barkod oxuma) **və ya** USB barkod skaner (klaviatura kimi işləyir) **və ya** əl ilə seçim (ehtiyat variant). Zona yerləşməsi skan edilən məhsulun zonasından + xəritədə klikləməklə simulyasiya olunur.
+- Real həyatda: səbətə bərkidilmiş planşet + **avtomatik barkod skaner** (məhsul qoyulan/götürülən kimi oxuyur) + zona üçün BLE mayakları (beacon).
+- Demoda: skaner “Demo: səbətin skaneri” panelində simulyasiya olunur — telefon/noutbuk kamerası (brauzerdə barkod oxuma) **və ya** USB barkod skaner (klaviatura kimi işləyir) **və ya** əl ilə seçim (ehtiyat variant). Bu panel açıq şəkildə demo idarəetməsi kimi işarələnib. Zona yerləşməsi skan edilən məhsulun zonasından + xəritədə klikləməklə simulyasiya olunur.
 
 ---
 
@@ -651,7 +651,7 @@ Admin paneldəki “AI tövsiyələr” **qalır** — o, məhsul yeri ilə bağ
 
 1. **Problem** (15 san): “Orta müştəri kassada X dəqiqə gözləyir.”
 2. **Səbət götürülür** — `/demo` səhifəsi, `BSK-001`.
-3. **4 məhsul skan edilir**, biri “Çıxart” rejimi ilə geri qaytarılır — yekun canlı yenilənir.
+3. **“Demo: səbətin skaneri” panelindən 4 məhsul səbətə qoyulur**, biri geri götürülür — yekun canlı yenilənir. (Real səbətdə bu avtomatikdir.)
 4. **Məhsul tap:** “diş pastası” yazılır → xəritədə rəf yanıb-sönür, yol çəkilir, addım-addım təlimat görünür.
 5. **Kassa:** səbətin QR kodu oxudulur → yekun dərhal → “Kart” → səbət ekranında “Səbət sıfırlandı”. Nişan: “6 san · ənənəvi ~65 san”.
 6. **Admin paneli:** istilik xəritəsi, “birlikdə alınanlar”, “axtarılıb tapılmayan: avokado”, “ən çox yolu soruşulan məhsullar”, **“X saat qənaət edildi”**, AI tövsiyələri.

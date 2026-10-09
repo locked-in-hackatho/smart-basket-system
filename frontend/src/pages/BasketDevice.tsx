@@ -7,10 +7,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Loader2, Map, Minus, Plus, QrCode, ScanLine, Search, ShoppingBasket } from 'lucide-react'
+import { ListChecks, Loader2, Map, QrCode, Search, ShoppingBasket, Sparkles } from 'lucide-react'
 
 import { api, ApiError } from '../api'
-import BarcodeScanner from '../components/BarcodeScanner'
+import ScannerSimulator from '../components/ScannerSimulator'
 import CartList from '../components/CartList'
 import QrModal from '../components/QrModal'
 import ProductFinder from '../components/ProductFinder'
@@ -30,7 +30,6 @@ export default function BasketDevice() {
 
   const [cart, setCart] = useState<Cart | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [mode, setMode] = useState<ScanMode>('add')
   const [busy, setBusy] = useState(false)
   const [showQr, setShowQr] = useState(false)
   const [paidTotal, setPaidTotal] = useState<number | null>(null)
@@ -81,7 +80,6 @@ export default function BasketDevice() {
     totalRef.current = 0
     setCart(null)
     setPaidTotal(null)
-    setMode('add')
     setTab('shop')
     setShowFinder(false)
     setTarget(null)
@@ -115,7 +113,8 @@ export default function BasketDevice() {
     }
   }
 
-  const handleScan = (barcode: string) =>
+  /** The basket's scanner reported a product going in or coming out. */
+  const handleDetection = (barcode: string, mode: ScanMode) =>
     runCartAction(
       () => api.scan(basketId, barcode, mode),
       (next) => {
@@ -131,41 +130,16 @@ export default function BasketDevice() {
         if (mode === 'add') {
           beepSuccess()
           toast.success(
-            `${product.emoji} ${product.name} əlavə olundu`,
+            `${product.emoji} ${product.name} səbətə qoyuldu`,
             `+${formatAZN(product.price_qepik)} · Yekun ${formatAZN(next.total_qepik)}`,
           )
         } else {
           beepRemove()
           toast.info(
-            `${product.emoji} ${product.name} çıxarıldı`,
+            `${product.emoji} ${product.name} səbətdən götürüldü`,
             `−${formatAZN(product.price_qepik)} · Yekun ${formatAZN(next.total_qepik)}`,
           )
         }
-      },
-    )
-
-  const changeQty = (itemId: number, qty: number) =>
-    runCartAction(
-      () => api.setItemQty(basketId, itemId, qty),
-      () => (qty <= 0 ? beepRemove() : beepSuccess()),
-    )
-
-  const moveTo = (x: number, y: number) =>
-    runCartAction(
-      () => api.setPosition(basketId, x, y),
-      (next) =>
-        toast.info(
-          'Mövqe yeniləndi',
-          next.current_zone ? next.current_zone.name : `(${x}, ${y})`,
-        ),
-    )
-
-  const removeItem = (itemId: number) =>
-    runCartAction(
-      () => api.removeItem(basketId, itemId),
-      () => {
-        beepRemove()
-        toast.info('Məhsul səbətdən silindi')
       },
     )
 
@@ -199,7 +173,7 @@ export default function BasketDevice() {
           {cart.item_count} məhsul · {basketId}
         </p>
         <p className="max-w-sm text-sm opacity-60">
-          Bu səbət kassada açıqdır. Ödəniş bitənə qədər skan mümkün deyil.
+          Bu səbət kassada açıqdır. Ödəniş bitənə qədər səbətə məhsul qoymaq mümkün deyil.
         </p>
       </div>
     )
@@ -252,39 +226,10 @@ export default function BasketDevice() {
         </button>
       </Card>
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => setMode('add')}
-          aria-pressed={mode === 'add'}
-          className={`flex min-h-14 items-center justify-center gap-2 rounded-2xl text-lg font-bold transition ${
-            mode === 'add'
-              ? 'bg-brand-600 text-white shadow-md'
-              : 'border border-slate-200 bg-white text-slate-500'
-          }`}
-        >
-          <Plus className="size-5" aria-hidden />
-          Əlavə et
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('remove')}
-          aria-pressed={mode === 'remove'}
-          className={`flex min-h-14 items-center justify-center gap-2 rounded-2xl text-lg font-bold transition ${
-            mode === 'remove'
-              ? 'bg-red-600 text-white shadow-md'
-              : 'border border-slate-200 bg-white text-slate-500'
-          }`}
-        >
-          <Minus className="size-5" aria-hidden />
-          Çıxart
-        </button>
-      </div>
-
       <div className="mt-3 flex gap-1 rounded-xl bg-slate-100 p-1">
         {(
           [
-            ['shop', 'Alış-veriş', ScanLine],
+            ['shop', 'Səbət', ListChecks],
             ['map', 'Xəritə', Map],
           ] as const
         ).map(([id, label, Icon]) => (
@@ -307,25 +252,26 @@ export default function BasketDevice() {
 
       {tab === 'shop' ? (
         <>
-          <div className="mt-3">
-            <BarcodeScanner onScan={handleScan} disabled={busy} />
-          </div>
-
           <div className="mt-4">
             {cart.items.length === 0 ? (
               <EmptyState
                 icon={<ShoppingBasket className="size-9" aria-hidden />}
-                title="Məhsulu skan edərək alış-verişə başlayın"
-                hint="Barkodu kamera ilə oxudun, skanerdən keçirin və ya “Demo məhsullar” siyahısından seçin."
+                title="Məhsulu səbətə qoyun"
+                hint="Səbətin skaneri hər məhsulu avtomatik oxuyur — siz heç nə etməli deyilsiniz."
               />
             ) : (
-              <CartList
-                items={cart.items}
-                onChangeQty={changeQty}
-                onRemove={removeItem}
-                disabled={busy}
-              />
+              <>
+                <p className="mb-2 flex items-center gap-1.5 text-sm text-slate-500">
+                  <Sparkles className="size-4 text-brand-600" aria-hidden />
+                  Səbətin skaneri bu məhsulları oxudu
+                </p>
+                <CartList items={cart.items} readOnly />
+              </>
             )}
+          </div>
+
+          <div className="mt-4">
+            <ScannerSimulator onDetect={handleDetection} disabled={busy} />
           </div>
         </>
       ) : (

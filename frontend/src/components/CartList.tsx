@@ -7,10 +7,14 @@ import type { CartItem } from '../types'
 
 interface Props {
   items: CartItem[]
-  onChangeQty: (itemId: number, qty: number) => void
-  onRemove: (itemId: number) => void
+  /**
+   * The basket's own scanner decides what is in the basket, so nothing here
+   * is editable by default. These are kept for any screen that genuinely
+   * needs to correct a line (none today).
+   */
+  onChangeQty?: (itemId: number, qty: number) => void
+  onRemove?: (itemId: number) => void
   disabled?: boolean
-  /** Read-only rendering for the till and the receipt. */
   readOnly?: boolean
 }
 
@@ -19,7 +23,7 @@ export default function CartList({
   onChangeQty,
   onRemove,
   disabled = false,
-  readOnly = false,
+  readOnly = true,
 }: Props) {
   return (
     <ul className="space-y-2">
@@ -48,7 +52,7 @@ export default function CartList({
                 type="button"
                 aria-label={`${item.product.name} sayını azalt`}
                 disabled={disabled}
-                onClick={() => onChangeQty(item.item_id, item.qty - 1)}
+                onClick={() => onChangeQty?.(item.item_id, item.qty - 1)}
                 className="flex size-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition active:scale-95 hover:bg-slate-50 disabled:opacity-40"
               >
                 <Minus className="size-4" aria-hidden />
@@ -60,7 +64,7 @@ export default function CartList({
                 type="button"
                 aria-label={`${item.product.name} sayını artır`}
                 disabled={disabled}
-                onClick={() => onChangeQty(item.item_id, item.qty + 1)}
+                onClick={() => onChangeQty?.(item.item_id, item.qty + 1)}
                 className="flex size-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition active:scale-95 hover:bg-slate-50 disabled:opacity-40"
               >
                 <Plus className="size-4" aria-hidden />
@@ -77,7 +81,7 @@ export default function CartList({
               type="button"
               aria-label={`${item.product.name} məhsulunu sil`}
               disabled={disabled}
-              onClick={() => onRemove(item.item_id)}
+              onClick={() => onRemove?.(item.item_id)}
               className="flex size-11 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
             >
               <Trash2 className="size-4" aria-hidden />

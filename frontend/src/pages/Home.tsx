@@ -22,7 +22,7 @@ const CARDS = [
     to: '/basket/BSK-001',
     icon: ShoppingBasket,
     title: 'Səbət cihazı',
-    text: 'Səbətə bərkidilmiş ekran: məhsulu skan et, yekunu canlı gör, məhsulun yerini tap.',
+    text: 'Səbətin skaneri məhsulları avtomatik oxuyur — ekranda canlı yekun və məhsul axtarışı.',
     tone: 'bg-brand-600',
   },
   {
@@ -88,9 +88,9 @@ export default function Home() {
           Kassada növbə çəkmədən alış-veriş
         </h2>
         <p className="mt-3 max-w-2xl text-lg text-slate-600">
-          Müştəri məhsulu səbətə qoyarkən özü skan edir. Kassada yalnız səbətin QR kodu
-          oxudulur və yekun məbləğ dərhal ekrana çıxır. Mağaza isə səbətlərin hərəkətindən
-          canlı analitika alır.
+          Səbətin içindəki skaner qoyulan hər məhsulu özü oxuyur — müştəri heç nə etmir.
+          Kassada yalnız səbətin QR kodu oxudulur və yekun məbləğ dərhal ekrana çıxır.
+          Mağaza isə səbətlərin hərəkətindən canlı analitika alır.
         </p>
       </section>
 

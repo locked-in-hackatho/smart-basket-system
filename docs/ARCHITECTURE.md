@@ -14,7 +14,7 @@ CORS problemi olmur.
 ```mermaid
 graph TB
     subgraph clients["Müştəri cihazları"]
-        basket["📱 Səbət cihazı<br/>/basket/:id<br/>skan · səbət · məhsul tap"]
+        basket["📱 Səbət cihazı<br/>/basket/:id<br/>göstərici · məhsul tap<br/>(skaner avtomatik oxuyur)"]
         till["🖥️ Kassa<br/>/checkout<br/>QR oxu · ödəniş"]
         admin["📊 Admin<br/>/admin<br/>analitika · istilik xəritəsi"]
         print["🖨️ Çap<br/>/print<br/>QR · barkod"]
@@ -88,7 +88,8 @@ sequenceDiagram
     participant D as SQLite
     participant K as Kassa
 
-    M->>S: Məhsulu skan edir
+    M->>S: Məhsulu səbətə qoyur
+    Note over S: Səbətin skaneri özü oxuyur —<br/>müştəri heç nə etmir
     S->>A: POST /api/baskets/BSK-001/scan
     A->>D: sessiya yarat (ilk skanda)
     A->>D: basket_items += 1 · event: scan_add
